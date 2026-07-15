@@ -3,6 +3,7 @@
    ========================================================== */
 
 let PRODUCTS = [];
+let SETTINGS = {};
 
 async function loadProducts() {
   try {
@@ -13,6 +14,53 @@ async function loadProducts() {
     console.error("Could not load products from the server. Is `npm start` running?", e);
     PRODUCTS = [];
   }
+}
+
+async function loadSettings() {
+  try {
+    const res = await fetch("/api/settings");
+    if (!res.ok) throw new Error("bad response");
+    SETTINGS = await res.json();
+  } catch (e) {
+    console.error("Could not load homepage settings from the server.", e);
+    SETTINGS = {};
+  }
+}
+
+/* ---------- Homepage hero (admin-editable copy + trending-driven tags) ---------- */
+function renderHero(){
+  const copy = document.getElementById("hero-copy");
+  if(!copy) return; // not on the homepage
+
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if(el && value) el.textContent = value;
+  };
+  setText("hero-eyebrow", SETTINGS.hero_eyebrow);
+  setText("hero-title-1", SETTINGS.hero_title_1);
+  setText("hero-title-2", SETTINGS.hero_title_2);
+  setText("hero-subtitle", SETTINGS.hero_subtitle);
+  setText("hero-cta-primary", SETTINGS.hero_cta_primary);
+  setText("hero-cta-secondary", SETTINGS.hero_cta_secondary);
+  setText("hero-badge", SETTINGS.hero_badge);
+
+  const trending = PRODUCTS.filter(p => p.trending);
+  const priceTag = document.getElementById("hero-price-tag");
+  if(priceTag){
+    if(trending.length){
+      const minPrice = Math.min(...trending.map(p => p.price));
+      priceTag.textContent = `Starting ₹${minPrice}`;
+    } else {
+      priceTag.textContent = "";
+      priceTag.style.display = "none";
+    }
+  }
+
+  // smooth fade-in once real copy is in place
+  requestAnimationFrame(()=>{
+    copy.classList.add("loaded");
+    document.querySelectorAll(".tag-float").forEach(t=>t.classList.add("loaded"));
+  });
 }
 
 const CART_KEY = "flareCart";
@@ -297,8 +345,10 @@ function toggleMobileMenu(){
 
 document.addEventListener("DOMContentLoaded", async ()=>{
   updateCartBadge();
-  await loadProducts();
-  renderBestsellers("bestseller-grid", PRODUCTS.slice(0,8));
+  await Promise.all([loadProducts(), loadSettings()]);
+  renderHero();
+  const trendingFirst = [...PRODUCTS.filter(p=>p.trending), ...PRODUCTS.filter(p=>!p.trending)];
+  renderBestsellers("bestseller-grid", trendingFirst.slice(0,8));
   renderShopGrid();
   renderProductPage();
   renderCartPage();

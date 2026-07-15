@@ -1,7 +1,9 @@
 /* ==========================================================
    FLARE — SQLite data layer
-   Stores every product the storefront and admin panel share.
-   File lives at ./data/flare.db so it persists between restarts.
+   Stores every product + homepage setting the storefront and
+   admin panel share. File lives at ./data/flare.db so it
+   persists between restarts (see PROJECT.md for the caveat
+   about Render's free-tier ephemeral disk).
    ========================================================== */
 
 const Database = require("better-sqlite3");
@@ -26,49 +28,119 @@ db.exec(`
     reviews INTEGER NOT NULL DEFAULT 0,
     image TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
+    trending INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL DEFAULT ''
   );
 `);
 
-const existing = db.prepare("SELECT COUNT(*) AS c FROM products").get().c;
+/* ---------- Seed products (only runs once, on an empty table) ---------- */
 
-if (existing === 0) {
+const existingProducts = db.prepare("SELECT COUNT(*) AS c FROM products").get().c;
+
+if (existingProducts === 0) {
   const seed = [
-    { name:"Wide-Leg Cargo Cords",       cat:"Cords",   price:1799, mrp:2599, colors:["#8f6ed6","#3b3540"], sizes:["XS","S","M","L","XL"], rating:4.6, reviews:128 },
-    { name:"High-Rise Straight Cords",   cat:"Cords",   price:1999, mrp:2799, colors:["#e8b94d","#a8763e"], sizes:["S","M","L","XL"],     rating:4.4, reviews:87  },
-    { name:"Flared Corduroy Trousers",   cat:"Cords",   price:2099, mrp:2999, colors:["#c9506b","#3b3540"], sizes:["XS","S","M","L"],     rating:4.7, reviews:203 },
-    { name:"Baggy Fit Corduroy Pants",   cat:"Cords",   price:1899, mrp:2499, colors:["#5c6bc0","#8f6ed6"], sizes:["S","M","L","XL"],     rating:4.3, reviews:64  },
-    { name:"Cropped Rib Knit Top",       cat:"Tops",    price:899,  mrp:1299, colors:["#ff3e7f","#3b3540"], sizes:["XS","S","M","L"],     rating:4.5, reviews:156 },
-    { name:"Oversized Graphic Tee",      cat:"Tops",    price:749,  mrp:999,  colors:["#4c8b7c","#3b3540"], sizes:["S","M","L","XL"],     rating:4.2, reviews:92  },
-    { name:"Satin Cami Top",             cat:"Tops",    price:999,  mrp:1499, colors:["#c9506b","#e8b94d"], sizes:["XS","S","M"],         rating:4.6, reviews:74  },
-    { name:"Puff Sleeve Blouse",         cat:"Tops",    price:1199, mrp:1699, colors:["#3b3540","#8f6ed6"], sizes:["S","M","L"],          rating:4.4, reviews:51  },
-    { name:"Floral Wrap Midi Dress",     cat:"Dresses", price:1699, mrp:2399, colors:["#8f6ed6","#c9506b"], sizes:["XS","S","M","L"],     rating:4.8, reviews:241 },
-    { name:"Denim Shirt Dress",          cat:"Dresses", price:1899, mrp:2599, colors:["#5c6bc0","#3b3540"], sizes:["S","M","L"],          rating:4.5, reviews:118 },
-    { name:"Ribbed Bodycon Dress",       cat:"Dresses", price:1499, mrp:1999, colors:["#ff3e7f","#3b3540"], sizes:["XS","S","M","L"],     rating:4.3, reviews:69  },
-    { name:"Corduroy Co-ord Set",        cat:"Co-ords", price:2499, mrp:3299, colors:["#e8b94d","#8f6ed6"], sizes:["S","M","L"],          rating:4.7, reviews:98  },
-    { name:"Knit Top & Skirt Set",       cat:"Co-ords", price:2199, mrp:2999, colors:["#4c8b7c","#c9506b"], sizes:["XS","S","M","L"],     rating:4.5, reviews:83  },
-    { name:"Straight Fit Denim Jeans",   cat:"Denim",   price:1599, mrp:2199, colors:["#5c6bc0","#3b3540"], sizes:["S","M","L","XL"],     rating:4.4, reviews:172 },
-    { name:"Distressed Boyfriend Jeans", cat:"Denim",   price:1699, mrp:2399, colors:["#a8763e","#3b3540"], sizes:["S","M","L"],          rating:4.2, reviews:59  },
-    { name:"Corduroy Flare Skirt",       cat:"Cords",   price:1399, mrp:1999, colors:["#c9506b","#e8b94d"], sizes:["XS","S","M","L"],     rating:4.6, reviews:77  },
+    {
+      name: "Wide-Leg Cargo Cords", cat: "Cords", price: 1799, mrp: 2599,
+      colors: ["#8f6ed6", "#3b3540"], sizes: ["XS", "S", "M", "L", "XL"],
+      rating: 4.6, reviews: 128, trending: 1,
+      description: "Relaxed wide-leg corduroy pants with utility cargo pockets and an adjustable elastic waistband. The one pair you'll reach for on repeat this season.",
+    },
+    {
+      name: "Flared Corduroy Trousers", cat: "Cords", price: 2099, mrp: 2999,
+      colors: ["#c9506b", "#3b3540"], sizes: ["XS", "S", "M", "L"],
+      rating: 4.7, reviews: 203, trending: 1,
+      description: "A soft-touch corduroy flare cut with a high rise and just enough stretch to move with you all day, from class to the coffee run after.",
+    },
+    {
+      name: "Cropped Rib Knit Top", cat: "Tops", price: 899, mrp: 1299,
+      colors: ["#ff3e7f", "#3b3540"], sizes: ["XS", "S", "M", "L"],
+      rating: 4.5, reviews: 156, trending: 1,
+      description: "A fitted ribbed knit crop with a rounded neckline, made to layer under jackets or pair straight with high-rise cords.",
+    },
+    {
+      name: "Floral Wrap Midi Dress", cat: "Dresses", price: 1699, mrp: 2399,
+      colors: ["#8f6ed6", "#c9506b"], sizes: ["XS", "S", "M", "L"],
+      rating: 4.8, reviews: 241, trending: 0,
+      description: "A lightweight floral midi with a wrap front tie and flutter sleeves, cut for warm days and dressed-up dinners alike.",
+    },
+    {
+      name: "Corduroy Co-ord Set", cat: "Co-ords", price: 2499, mrp: 3299,
+      colors: ["#e8b94d", "#8f6ed6"], sizes: ["S", "M", "L"],
+      rating: 4.7, reviews: 98, trending: 0,
+      description: "A matching corduroy jacket and trouser set for when you want a whole outfit sorted in one click, no styling required.",
+    },
+    {
+      name: "Straight Fit Denim Jeans", cat: "Denim", price: 1599, mrp: 2199,
+      colors: ["#5c6bc0", "#3b3540"], sizes: ["S", "M", "L", "XL"],
+      rating: 4.4, reviews: 172, trending: 0,
+      description: "A classic mid-rise straight leg in rigid denim that softens with wear — the everyday jean that goes with everything else in your closet.",
+    },
+    {
+      name: "Satin Cami Top", cat: "Tops", price: 999, mrp: 1499,
+      colors: ["#c9506b", "#e8b94d"], sizes: ["XS", "S", "M"],
+      rating: 4.6, reviews: 74, trending: 0,
+      description: "A silky satin cami with adjustable straps and a subtle sheen, equally at home under a blazer or on its own.",
+    },
+    {
+      name: "Ribbed Bodycon Dress", cat: "Dresses", price: 1499, mrp: 1999,
+      colors: ["#ff3e7f", "#3b3540"], sizes: ["XS", "S", "M", "L"],
+      rating: 4.3, reviews: 69, trending: 0,
+      description: "A stretch ribbed bodycon with a square neckline, built to hold its shape from the first wear to the fiftieth.",
+    },
+    {
+      name: "Corduroy Flare Skirt", cat: "Cords", price: 1399, mrp: 1999,
+      colors: ["#c9506b", "#e8b94d"], sizes: ["XS", "S", "M", "L"],
+      rating: 4.6, reviews: 77, trending: 0,
+      description: "A knee-length corduroy skirt with a flared hem and side zip, styled easily with tucked-in tops and ankle boots.",
+    },
   ];
 
-  const insert = db.prepare(`
-    INSERT INTO products (name, cat, price, mrp, sizes, colors, rating, reviews, image, description)
-    VALUES (@name, @cat, @price, @mrp, @sizes, @colors, @rating, @reviews, '', '')
+  const insertProduct = db.prepare(`
+    INSERT INTO products (name, cat, price, mrp, sizes, colors, rating, reviews, image, description, trending)
+    VALUES (@name, @cat, @price, @mrp, @sizes, @colors, @rating, @reviews, '', @description, @trending)
   `);
 
-  const insertMany = db.transaction((rows) => {
+  const insertProducts = db.transaction((rows) => {
     for (const r of rows) {
-      insert.run({
+      insertProduct.run({
         name: r.name, cat: r.cat, price: r.price, mrp: r.mrp,
         sizes: JSON.stringify(r.sizes), colors: JSON.stringify(r.colors),
         rating: r.rating, reviews: r.reviews,
+        description: r.description, trending: r.trending,
       });
     }
   });
 
-  insertMany(seed);
+  insertProducts(seed);
   console.log(`Seeded ${seed.length} products into flare.db`);
+}
+
+/* ---------- Seed homepage settings (only runs once) ---------- */
+
+const existingSettings = db.prepare("SELECT COUNT(*) AS c FROM settings").get().c;
+
+if (existingSettings === 0) {
+  const defaults = {
+    hero_eyebrow: "✦ New Season Drop",
+    hero_title_1: "Cords that",
+    hero_title_2: "hit different.",
+    hero_subtitle: "Wide-leg, flared, cropped — corduroy pants and everyday fits designed for girls who move fast and dress louder. Premium fabric, unreal prices.",
+    hero_cta_primary: "Shop Cords",
+    hero_cta_secondary: "Explore All",
+    hero_badge: "🔥 Bestseller",
+  };
+
+  const insertSetting = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
+  const insertSettings = db.transaction((obj) => {
+    for (const key of Object.keys(obj)) insertSetting.run(key, obj[key]);
+  });
+  insertSettings(defaults);
+  console.log("Seeded default homepage settings");
 }
 
 module.exports = db;

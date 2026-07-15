@@ -12,7 +12,13 @@ A storefront (browse, filter, product detail, cart) plus a small admin panel, ba
 - **Mobile responsive**: breakpoints at 1024 / 900 / 768 / 640 / 420px covering nav (burger menu below 900px), hero, product grid, filters, product detail layout, and cart rows.
 - **Cart**: persisted per-browser in `localStorage` (key `flareCart`) — this is normal shopping-cart behavior, not something that needs a backend.
 - **Product images**: placeholder photos from picsum.photos, seeded per product id (`demoImg()` in `js/script.js`) so each product keeps a consistent-looking photo. Swap these for real product photography whenever it's ready — either paste a real image URL into the admin panel's "Image URL" field per product, or replace the `demoImg()` helper.
-- **Admin panel** (`admin.html`): password-gated. Lets you add, edit, and delete products (name, category, price, MRP, sizes, colors, rating, review count, image URL, description). Changes are stored in the shared database and immediately visible to all storefront visitors.
+- **Product catalog**: 9 curated seed products (trimmed down from an earlier 16-item placeholder catalog) with real one-line descriptions instead of blank filler. 3 are marked `trending`.
+- **Trending products**: products can be flagged "Trending" from the admin panel. The homepage hero's price tag ("Starting ₹X") is computed live from whichever products are marked trending — no manual price editing needed. Bestsellers on the homepage also show trending items first.
+- **Admin-editable homepage hero**: the hero's eyebrow tag, headline (two lines), subtitle, both button labels, and badge text are all stored in the database (`settings` table) and editable from the admin panel's "Homepage Content" tab, with a live preview that updates as you type — no code changes or redeploys needed to update the homepage pitch.
+- **Admin panel** (`admin.html`): password-gated, with two tabs:
+  - **Products** — add/edit/delete products (name, category, price, MRP, sizes, colors, rating, review count, image URL, description, trending flag), plus a search box to filter the product table by name/category.
+  - **Homepage Content** — edit the hero copy described above, with an instant live preview panel.
+  Changes in both tabs are stored in the shared database and immediately visible to all storefront visitors.
 
 ## Architecture
 
@@ -40,14 +46,18 @@ Originally considered a localStorage-only admin (no server), but the requirement
 
 | Method | Route | Auth | Purpose |
 |---|---|---|---|
-| GET | `/api/products` | none | list all products (used by storefront + admin) |
+| GET | `/api/products` | none | list all products (used by storefront + admin) — each includes a `trending` boolean |
 | GET | `/api/products/:id` | none | single product |
-| POST | `/api/products` | admin token | create product |
+| POST | `/api/products` | admin token | create product (accepts `trending: true/false`) |
 | PUT | `/api/products/:id` | admin token | update product |
 | DELETE | `/api/products/:id` | admin token | delete product |
 | POST | `/api/admin/login` | none | exchange admin password for a JWT (12h expiry) |
+| GET | `/api/settings` | none | homepage hero copy as a flat key/value object |
+| PUT | `/api/settings` | admin token | update any subset of hero copy keys (partial updates supported) |
 
 Admin routes require an `Authorization: Bearer <token>` header. The admin panel handles this automatically once you log in.
+
+Settings keys: `hero_eyebrow`, `hero_title_1`, `hero_title_2`, `hero_subtitle`, `hero_cta_primary`, `hero_cta_secondary`, `hero_badge`. The hero's price tag isn't a stored setting — it's computed on the frontend from whichever products have `trending: true`.
 
 ## Running it locally
 
@@ -72,10 +82,12 @@ This is a small persistent Node server with a SQLite file on disk — it needs a
 
 **Render**: `render.yaml` in this repo is a Render "blueprint" — once the repo is on GitHub, Render's dashboard can read it and set the service up automatically (build command `npm install`, start command `npm start`, `JWT_SECRET` auto-generated, `ADMIN_PASSWORD` prompted for at deploy time so it never sits in git). Deploying still requires signing into your own Render account, so that step is on you too.
 
-**Free-tier caveat**: Render's free web service plan has an ephemeral filesystem — `data/flare.db` will reset (back to the 16 seed products) on every redeploy or when the service spins down from inactivity. Fine for testing, not fine for a real store where admin-added products need to stick around. For real persistence, either upgrade to a paid Render instance and add a persistent disk mounted at `data/`, or migrate off SQLite to a hosted database (e.g., Render's managed Postgres) later.
+**Free-tier caveat**: Render's free web service plan has an ephemeral filesystem — `data/flare.db` will reset (back to the 9 seed products and default hero copy) on every redeploy or when the service spins down from inactivity. Fine for testing, not fine for a real store where admin-added products or hero edits need to stick around. For real persistence, either upgrade to a paid Render instance and add a persistent disk mounted at `data/`, or migrate off SQLite to a hosted database (e.g., Render's managed Postgres) later.
 
 ## Notes for future sessions
 
-- Product `id`, category, price, etc. all live in the database now — the old hardcoded `PRODUCTS` array in `js/script.js` is gone, replaced by `loadProducts()` which fetches from the API.
+- Product `id`, category, price, etc. all live in the database now — the old hardcoded `PRODUCTS` array in `js/script.js` is gone, replaced by `loadProducts()` which fetches from the API. Homepage hero copy similarly comes from `loadSettings()` fetching `/api/settings`, not hardcoded HTML.
 - The gradient CSS classes (`.g1`–`.g8`) are still used as a loading-state background behind product images; they're computed from `id % 8` server-side (see `formatProduct` in `server.js`), not stored per-product.
 - `server.js` blocks direct HTTP access to itself, `db.js`, `package.json`, and the `/data` folder — don't remove that middleware, it's the only thing stopping the admin password defaults and the raw database file from being publicly downloadable.
+- The `settings` table is a plain key/value store (`key TEXT PRIMARY KEY, value TEXT`) so adding more editable homepage fields later is just adding a key to `SETTINGS_KEYS` in `server.js` plus a form field in `admin.html` — no schema migration needed.
+- Admin panel now has two tabs (`switchTab()` in `js/admin.js`): Products and Homepage Content. If adding a third tab (e.g. site-wide banner text, footer links), follow the same `tab-panel-admin` / `tab-link` pattern for consistency.

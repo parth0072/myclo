@@ -8,6 +8,8 @@
 const TOKEN_KEY = "flareAdminToken";
 let ALL_PRODUCTS = [];
 let editingId = null;
+let SETTINGS = {};
+let tableSearchTerm = "";
 
 function getToken(){ return localStorage.getItem(TOKEN_KEY); }
 function setToken(t){ localStorage.setItem(TOKEN_KEY, t); }
@@ -29,6 +31,8 @@ function showDashboard(){
   document.getElementById("login-screen").style.display = "none";
   document.getElementById("dashboard-screen").style.display = "block";
   refreshProducts();
+  loadSettingsAdmin();
+  switchTab("products");
 }
 
 /* ---------- Auth ---------- */
@@ -86,6 +90,7 @@ async function refreshProducts(){
   ALL_PRODUCTS = await res.json();
   renderStats();
   renderTable();
+  updateHeroPreview();
 }
 
 function renderStats(){
@@ -101,18 +106,24 @@ function renderStats(){
 
 function renderTable(){
   const tbody = document.getElementById("product-tbody");
-  document.getElementById("table-count").textContent = `${ALL_PRODUCTS.length} products`;
 
-  if(!ALL_PRODUCTS.length){
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No products yet — add your first one above.</td></tr>`;
+  const term = tableSearchTerm.trim().toLowerCase();
+  const filtered = term
+    ? ALL_PRODUCTS.filter(p => p.name.toLowerCase().includes(term) || p.cat.toLowerCase().includes(term))
+    : ALL_PRODUCTS;
+
+  document.getElementById("table-count").textContent = `${filtered.length} of ${ALL_PRODUCTS.length} products`;
+
+  if(!filtered.length){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${ALL_PRODUCTS.length ? "No products match your search." : "No products yet — add your first one above."}</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = ALL_PRODUCTS.map(p=>{
+  tbody.innerHTML = filtered.map(p=>{
     const dotColor = (p.colors && p.colors[0]) || "#ccc";
     return `
     <tr>
-      <td>#${p.id}</td>
+      <td>${p.trending ? '<span class="trend-star" title="Trending">★</span>' : ''}</td>
       <td><span class="p-swatch-dot" style="background:${dotColor}"></span>${escapeHtml(p.name)}</td>
       <td>${escapeHtml(p.cat)}</td>
       <td>₹${p.price}</td>
@@ -145,6 +156,7 @@ function closeForm(){
   document.getElementById("toggle-form-btn").textContent = "+ Add Product";
   document.getElementById("product-form").reset();
   document.getElementById("p-id").value = "";
+  document.getElementById("p-trending").checked = false;
   editingId = null;
   document.getElementById("form-error").classList.remove("show");
   document.getElementById("save-btn").textContent = "Save Product";
@@ -165,6 +177,7 @@ function startEdit(id){
   document.getElementById("p-reviews").value = p.reviews;
   document.getElementById("p-image").value = p.image || "";
   document.getElementById("p-description").value = p.description || "";
+  document.getElementById("p-trending").checked = !!p.trending;
   document.getElementById("save-btn").textContent = "Update Product";
   openForm();
   document.getElementById("product-form").scrollIntoView({behavior:"smooth", block:"start"});
@@ -200,6 +213,7 @@ async function submitForm(e){
     reviews: document.getElementById("p-reviews").value,
     image: document.getElementById("p-image").value,
     description: document.getElementById("p-description").value,
+    trending: document.getElementById("p-trending").checked,
   };
 
   const id = document.getElementById("p-id").value;
@@ -226,6 +240,106 @@ async function submitForm(e){
   }
 }
 
+/* ---------- Homepage content (settings) ---------- */
+
+async function loadSettingsAdmin(){
+  try{
+    const res = await fetch("/api/settings");
+    SETTINGS = await res.json();
+  }catch(e){
+    SETTINGS = {};
+  }
+  document.getElementById("s-eyebrow").value = SETTINGS.hero_eyebrow || "";
+  document.getElementById("s-title1").value = SETTINGS.hero_title_1 || "";
+  document.getElementById("s-title2").value = SETTINGS.hero_title_2 || "";
+  document.getElementById("s-subtitle").value = SETTINGS.hero_subtitle || "";
+  document.getElementById("s-cta1").value = SETTINGS.hero_cta_primary || "";
+  document.getElementById("s-cta2").value = SETTINGS.hero_cta_secondary || "";
+  document.getElementById("s-badge").value = SETTINGS.hero_badge || "";
+  updateHeroPreview();
+}
+
+function updateHeroPreview(){
+  const val = (id) => document.getElementById(id).value;
+  const setPreview = (id, text) => { document.getElementById(id).textContent = text || ""; };
+
+  setPreview("mp-eyebrow", val("s-eyebrow"));
+  setPreview("mp-title1", val("s-title1"));
+  setPreview("mp-title2", val("s-title2"));
+  setPreview("mp-subtitle", val("s-subtitle"));
+  setPreview("mp-cta1", val("s-cta1"));
+  setPreview("mp-cta2", val("s-cta2"));
+  setPreview("mp-badge", val("s-badge"));
+
+  const trending = ALL_PRODUCTS.filter(p => p.trending);
+  const priceEl = document.getElementById("mp-price");
+  if(trending.length){
+    priceEl.textContent = `Starting ₹${Math.min(...trending.map(p=>p.price))}`;
+    priceEl.style.display = "";
+  } else {
+    priceEl.textContent = "No trending products yet";
+    priceEl.style.display = "";
+  }
+}
+
+async function submitSettingsForm(e){
+  e.preventDefault();
+  const errBox = document.getElementById("settings-error");
+  errBox.classList.remove("show");
+
+  const body = {
+    hero_eyebrow: document.getElementById("s-eyebrow").value,
+    hero_title_1: document.getElementById("s-title1").value,
+    hero_title_2: document.getElementById("s-title2").value,
+    hero_subtitle: document.getElementById("s-subtitle").value,
+    hero_cta_primary: document.getElementById("s-cta1").value,
+    hero_cta_secondary: document.getElementById("s-cta2").value,
+    hero_badge: document.getElementById("s-badge").value,
+  };
+
+  const btn = document.getElementById("settings-save-btn");
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+
+  try{
+    const res = await authedFetch("/api/settings", {
+      method: "PUT",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if(!res.ok){
+      errBox.textContent = data.error || "Something went wrong saving the homepage content.";
+      errBox.classList.add("show");
+      return;
+    }
+    SETTINGS = data;
+    btn.textContent = "Saved ✓";
+    setTimeout(()=>{ btn.textContent = originalLabel; }, 1800);
+  }catch(e){ /* handled by authedFetch on 401 */ }
+  finally{
+    btn.disabled = false;
+  }
+}
+
+/* ---------- Tabs ---------- */
+
+function switchTab(name){
+  document.querySelectorAll(".tab-link").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+  document.querySelectorAll(".tab-panel-admin").forEach(panel => {
+    const isTarget = panel.id === `tab-${name}`;
+    if(isTarget){
+      panel.style.display = "block";
+      panel.classList.add("active");
+      requestAnimationFrame(()=> panel.classList.add("in"));
+      if(name === "content") updateHeroPreview();
+    } else {
+      panel.classList.remove("active", "in");
+      panel.style.display = "none";
+    }
+  });
+}
+
 /* ---------- Wire up ---------- */
 
 document.addEventListener("DOMContentLoaded", ()=>{
@@ -240,6 +354,20 @@ document.addEventListener("DOMContentLoaded", ()=>{
   });
   document.getElementById("cancel-form-btn").addEventListener("click", closeForm);
   document.getElementById("product-form").addEventListener("submit", submitForm);
+
+  document.getElementById("product-search").addEventListener("input", (e)=>{
+    tableSearchTerm = e.target.value;
+    renderTable();
+  });
+
+  document.querySelectorAll(".tab-link").forEach(btn=>{
+    btn.addEventListener("click", ()=> switchTab(btn.dataset.tab));
+  });
+
+  document.getElementById("settings-form").addEventListener("submit", submitSettingsForm);
+  ["s-eyebrow","s-title1","s-title2","s-subtitle","s-cta1","s-cta2","s-badge"].forEach(id=>{
+    document.getElementById(id).addEventListener("input", updateHeroPreview);
+  });
 
   if(getToken()){
     showDashboard();

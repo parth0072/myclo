@@ -145,6 +145,10 @@ header.site-header{
   padding:78px 24px 60px;
   display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center;
 }
+.hero-copy{opacity:0;transform:translateY(8px);transition:opacity .5s ease, transform .5s ease;}
+.hero-copy.loaded{opacity:1;transform:translateY(0);}
+.tag-float{opacity:0;transition:opacity .4s ease .1s;}
+.tag-float.loaded{opacity:1;}
 .hero-eyebrow{
   display:inline-flex;align-items:center;gap:8px;
   background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);

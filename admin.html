@@ -39,86 +39,163 @@
     <div class="stat-card"><div class="num" id="stat-avgrating">0</div><div class="lbl">Avg. Rating</div></div>
   </div>
 
-  <div class="admin-panel">
-    <div class="admin-panel-head">
-      <h2>Add / Edit Product</h2>
-      <button class="btn btn-primary btn-sm" id="toggle-form-btn">+ Add Product</button>
-    </div>
-
-    <form class="pform" id="product-form">
-      <div class="form-error" id="form-error"></div>
-      <input type="hidden" id="p-id">
-      <div class="pform-grid">
-        <div class="field">
-          <label>Product Name</label>
-          <input type="text" id="p-name" placeholder="e.g. Wide-Leg Cargo Cords" required>
-        </div>
-        <div class="field">
-          <label>Category</label>
-          <input type="text" id="p-cat" list="cat-options" placeholder="e.g. Cords" required>
-          <datalist id="cat-options">
-            <option value="Cords"><option value="Tops"><option value="Dresses">
-            <option value="Co-ords"><option value="Denim">
-          </datalist>
-        </div>
-        <div class="field">
-          <label>Price (₹)</label>
-          <input type="number" id="p-price" min="0" step="1" placeholder="1799" required>
-        </div>
-        <div class="field">
-          <label>MRP / Strike-through (₹)</label>
-          <input type="number" id="p-mrp" min="0" step="1" placeholder="2599" required>
-        </div>
-        <div class="field">
-          <label>Sizes</label>
-          <input type="text" id="p-sizes" placeholder="XS, S, M, L, XL">
-          <small>Comma-separated</small>
-        </div>
-        <div class="field">
-          <label>Colors</label>
-          <input type="text" id="p-colors" placeholder="#8f6ed6, #3b3540">
-          <small>Comma-separated hex codes</small>
-        </div>
-        <div class="field">
-          <label>Rating</label>
-          <input type="number" id="p-rating" min="0" max="5" step="0.1" placeholder="4.5">
-        </div>
-        <div class="field">
-          <label>Review Count</label>
-          <input type="number" id="p-reviews" min="0" step="1" placeholder="0">
-        </div>
-      </div>
-      <div class="pform-grid full">
-        <div class="field">
-          <label>Image URL <span style="text-transform:none;font-weight:400;">(optional — leave blank to use a placeholder photo)</span></label>
-          <input type="text" id="p-image" placeholder="https://...">
-        </div>
-        <div class="field">
-          <label>Description <span style="text-transform:none;font-weight:400;">(optional)</span></label>
-          <textarea id="p-description" placeholder="Fabric, fit, styling notes shown on the product page..."></textarea>
-        </div>
-      </div>
-      <div class="form-actions">
-        <button type="button" class="btn btn-outline btn-sm" id="cancel-form-btn">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm" id="save-btn">Save Product</button>
-      </div>
-    </form>
+  <div class="admin-tabs">
+    <button class="tab-link active" data-tab="products">Products</button>
+    <button class="tab-link" data-tab="content">Homepage Content</button>
   </div>
 
-  <div class="admin-panel">
-    <div class="admin-panel-head">
-      <h2>All Products</h2>
-      <span class="result-count" id="table-count"></span>
+  <div class="tab-panel-admin active" id="tab-products">
+    <div class="admin-panel">
+      <div class="admin-panel-head">
+        <h2>Add / Edit Product</h2>
+        <button class="btn btn-primary btn-sm" id="toggle-form-btn">+ Add Product</button>
+      </div>
+
+      <form class="pform" id="product-form">
+        <div class="form-error" id="form-error"></div>
+        <input type="hidden" id="p-id">
+        <div class="pform-grid">
+          <div class="field">
+            <label>Product Name</label>
+            <input type="text" id="p-name" placeholder="e.g. Wide-Leg Cargo Cords" required>
+          </div>
+          <div class="field">
+            <label>Category</label>
+            <input type="text" id="p-cat" list="cat-options" placeholder="e.g. Cords" required>
+            <datalist id="cat-options">
+              <option value="Cords"><option value="Tops"><option value="Dresses">
+              <option value="Co-ords"><option value="Denim">
+            </datalist>
+          </div>
+          <div class="field">
+            <label>Price (₹)</label>
+            <input type="number" id="p-price" min="0" step="1" placeholder="1799" required>
+          </div>
+          <div class="field">
+            <label>MRP / Strike-through (₹)</label>
+            <input type="number" id="p-mrp" min="0" step="1" placeholder="2599" required>
+          </div>
+          <div class="field">
+            <label>Sizes</label>
+            <input type="text" id="p-sizes" placeholder="XS, S, M, L, XL">
+            <small>Comma-separated</small>
+          </div>
+          <div class="field">
+            <label>Colors</label>
+            <input type="text" id="p-colors" placeholder="#8f6ed6, #3b3540">
+            <small>Comma-separated hex codes</small>
+          </div>
+          <div class="field">
+            <label>Rating</label>
+            <input type="number" id="p-rating" min="0" max="5" step="0.1" placeholder="4.5">
+          </div>
+          <div class="field">
+            <label>Review Count</label>
+            <input type="number" id="p-reviews" min="0" step="1" placeholder="0">
+          </div>
+        </div>
+        <div class="pform-grid full">
+          <div class="field">
+            <label>Image URL <span style="text-transform:none;font-weight:400;">(optional — leave blank to use a placeholder photo)</span></label>
+            <input type="text" id="p-image" placeholder="https://...">
+          </div>
+          <div class="field">
+            <label>Description <span style="text-transform:none;font-weight:400;">(optional)</span></label>
+            <textarea id="p-description" placeholder="Fabric, fit, styling notes shown on the product page..."></textarea>
+          </div>
+        </div>
+        <label class="trending-check">
+          <input type="checkbox" id="p-trending">
+          <span>Mark as <strong>Trending</strong> — feeds the homepage hero's badge price and jumps to the front of Bestsellers</span>
+        </label>
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="cancel-form-btn">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="save-btn">Save Product</button>
+        </div>
+      </form>
     </div>
-    <div class="admin-table-wrap">
-      <table class="admin-table">
-        <thead>
-          <tr>
-            <th>ID</th><th>Product</th><th>Category</th><th>Price</th><th>MRP</th><th>Rating</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="product-tbody"></tbody>
-      </table>
+
+    <div class="admin-panel">
+      <div class="admin-panel-head">
+        <h2>All Products</h2>
+        <span class="result-count" id="table-count"></span>
+      </div>
+      <input type="text" id="product-search" class="table-search" placeholder="Search by name or category...">
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th></th><th>Product</th><th>Category</th><th>Price</th><th>MRP</th><th>Rating</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="product-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel-admin" id="tab-content" style="display:none;">
+    <div class="admin-panel">
+      <div class="admin-panel-head">
+        <h2>Homepage Hero</h2>
+        <span class="result-count">Preview updates as you type</span>
+      </div>
+
+      <div class="content-editor-grid">
+        <form id="settings-form">
+          <div class="form-error" id="settings-error"></div>
+          <div class="field">
+            <label>Eyebrow tag</label>
+            <input type="text" id="s-eyebrow" placeholder="✦ New Season Drop">
+          </div>
+          <div class="field">
+            <label>Headline — line 1</label>
+            <input type="text" id="s-title1" placeholder="Cords that">
+          </div>
+          <div class="field">
+            <label>Headline — line 2 (highlighted)</label>
+            <input type="text" id="s-title2" placeholder="hit different.">
+          </div>
+          <div class="field">
+            <label>Subtitle</label>
+            <textarea id="s-subtitle" placeholder="Wide-leg, flared, cropped..."></textarea>
+          </div>
+          <div class="pform-grid">
+            <div class="field">
+              <label>Primary button label</label>
+              <input type="text" id="s-cta1" placeholder="Shop Cords">
+            </div>
+            <div class="field">
+              <label>Secondary button label</label>
+              <input type="text" id="s-cta2" placeholder="Explore All">
+            </div>
+          </div>
+          <div class="field">
+            <label>Badge tag <span style="text-transform:none;font-weight:400;">(the price tag next to it is automatic — pulled from products marked Trending)</span></label>
+            <input type="text" id="s-badge" placeholder="🔥 Bestseller">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-sm" id="settings-save-btn">Save Homepage Content</button>
+          </div>
+        </form>
+
+        <div class="live-preview-wrap">
+          <span class="preview-label">Live preview</span>
+          <div class="mini-hero">
+            <span class="mini-eyebrow" id="mp-eyebrow">✦ New Season Drop</span>
+            <div class="mini-title"><span id="mp-title1">Cords that</span><br><em id="mp-title2">hit different.</em></div>
+            <p class="mini-sub" id="mp-subtitle">Wide-leg, flared, cropped...</p>
+            <div class="mini-cta-row">
+              <span class="mini-btn mini-btn-primary" id="mp-cta1">Shop Cords</span>
+              <span class="mini-btn mini-btn-outline" id="mp-cta2">Explore All</span>
+            </div>
+            <div class="mini-tags">
+              <span class="mini-tag" id="mp-badge">🔥 Bestseller</span>
+              <span class="mini-tag" id="mp-price">Starting ₹1399</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
