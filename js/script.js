@@ -91,7 +91,7 @@ function addToCart(id, size, color, qty=1){
   else{
     cart.push({
       key, id:product.id, name:product.name, price:product.price,
-      g:product.g, size:size||product.sizes[1]||product.sizes[0],
+      g:product.g, image:product.image||"", size:size||product.sizes[1]||product.sizes[0],
       color:color||product.colors[0], qty
     });
   }
@@ -131,9 +131,15 @@ function showToast(msg){
   window.__toastTimer = setTimeout(()=>toast.classList.remove("show"), 2200);
 }
 
-/* ---------- Demo image helper (swap for real product photography later) ---------- */
+/* ---------- Image helpers ----------
+   Real product photos live in the database (p.image, set via seed data or the
+   admin panel's "Image URL" field). If a product doesn't have one yet, fall
+   back to a placeholder photo so the layout never shows a broken image. */
 function demoImg(seed, w=600, h=750){
   return `https://picsum.photos/seed/${seed}/${w}/${h}`;
+}
+function productImage(p, w, h){
+  return p.image ? p.image : demoImg("flare"+p.id, w, h);
 }
 
 /* ---------- Product card renderer (shared by home + shop) ---------- */
@@ -143,7 +149,7 @@ function productCardHTML(p){
   return `
   <a class="pcard" href="product.html?id=${p.id}">
     <div class="pcard-media ${p.g}">
-      <img src="${demoImg('flare'+p.id)}" alt="${p.name}" loading="lazy">
+      <img src="${productImage(p, 600, 750)}" alt="${p.name}" loading="lazy">
       <span class="badge">${off}% OFF</span>
       <span class="badge wishlist">&#9825;</span>
       <div class="quickadd" onclick="event.preventDefault(); addToCart(${p.id}, '${p.sizes[Math.floor(p.sizes.length/2)]}', '${p.colors[0]}');">Quick Add</div>
@@ -233,8 +239,8 @@ function renderShopGrid(){
   apply();
 }
 
-function setMainImage(seed, el){
-  document.getElementById("pd-main").innerHTML = `<img src="${demoImg(seed, 900, 1125)}" alt="">`;
+function setMainImage(src, el){
+  document.getElementById("pd-main").innerHTML = `<img src="${src}" alt="">`;
   document.querySelectorAll(".pd-thumb").forEach(t=>t.classList.remove("active"));
   if(el) el.classList.add("active");
 }
@@ -257,11 +263,18 @@ function renderProductPage(){
   document.getElementById("pd-off").textContent = `${off}% off`;
   document.getElementById("pd-rating-count").textContent = `${p.rating} (${p.reviews} reviews)`;
   main.className = `pd-gallery-main ${p.g}`;
-  main.innerHTML = `<img src="${demoImg('flare'+p.id+'-1', 900, 1125)}" alt="${p.name}">`;
+  const galleryImages = p.image
+    ? [p.image, p.image, p.image, p.image] // one real photo — shown consistently across all thumbnail slots
+    : [1,2,3,4].map(n => demoImg(`flare${p.id}-${n}`, 900, 1125));
+  const galleryThumbs = p.image
+    ? [p.image, p.image, p.image, p.image]
+    : [1,2,3,4].map(n => demoImg(`flare${p.id}-${n}`, 200, 250));
+
+  main.innerHTML = `<img src="${galleryImages[0]}" alt="${p.name}">`;
 
   const thumbs = document.getElementById("pd-thumbs");
-  thumbs.innerHTML = [1,2,3,4]
-    .map((n,i)=>`<div class="pd-thumb ${i===0?'active':''}" onclick="setMainImage('flare${p.id}-${n}', this)"><img src="${demoImg('flare'+p.id+'-'+n, 200, 250)}" alt=""></div>`).join("");
+  thumbs.innerHTML = galleryThumbs
+    .map((thumbSrc,i)=>`<div class="pd-thumb ${i===0?'active':''}" onclick="setMainImage('${galleryImages[i]}', this)"><img src="${thumbSrc}" alt=""></div>`).join("");
 
   const colorRow = document.getElementById("pd-colors");
   colorRow.innerHTML = p.colors.map((c,i)=>`<span class="color-swatch-lg ${i===0?'active':''}" style="background:${c}" onclick="document.querySelectorAll('.color-swatch-lg').forEach(s=>s.classList.remove('active'));this.classList.add('active');window.__selectedColor='${c}';"></span>`).join("");
@@ -307,7 +320,7 @@ function renderCartPage(){
   document.getElementById("cart-summary").style.display = "block";
   wrap.innerHTML = cart.map(item=>`
     <div class="cart-row">
-      <div class="cart-thumb ${item.g}"><img src="${demoImg('flare'+item.id, 200, 240)}" alt="${item.name}"></div>
+      <div class="cart-thumb ${item.g}"><img src="${item.image || demoImg('flare'+item.id, 200, 240)}" alt="${item.name}"></div>
       <div>
         <div class="cart-name">${item.name}</div>
         <div class="cart-meta">Size: ${item.size} &nbsp;·&nbsp; Color: <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${item.color};vertical-align:middle;"></span></div>

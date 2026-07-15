@@ -48,61 +48,70 @@ if (existingProducts === 0) {
       name: "Wide-Leg Cargo Cords", cat: "Cords", price: 1799, mrp: 2599,
       colors: ["#8f6ed6", "#3b3540"], sizes: ["XS", "S", "M", "L", "XL"],
       rating: 4.6, reviews: 128, trending: 1,
+      image: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=800&h=1000&fit=crop&q=80",
       description: "Relaxed wide-leg corduroy pants with utility cargo pockets and an adjustable elastic waistband. The one pair you'll reach for on repeat this season.",
     },
     {
       name: "Flared Corduroy Trousers", cat: "Cords", price: 2099, mrp: 2999,
       colors: ["#c9506b", "#3b3540"], sizes: ["XS", "S", "M", "L"],
       rating: 4.7, reviews: 203, trending: 1,
+      image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&h=1000&fit=crop&q=80",
       description: "A soft-touch corduroy flare cut with a high rise and just enough stretch to move with you all day, from class to the coffee run after.",
     },
     {
       name: "Cropped Rib Knit Top", cat: "Tops", price: 899, mrp: 1299,
       colors: ["#ff3e7f", "#3b3540"], sizes: ["XS", "S", "M", "L"],
       rating: 4.5, reviews: 156, trending: 1,
+      image: "https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=800&h=1000&fit=crop&q=80",
       description: "A fitted ribbed knit crop with a rounded neckline, made to layer under jackets or pair straight with high-rise cords.",
     },
     {
       name: "Floral Wrap Midi Dress", cat: "Dresses", price: 1699, mrp: 2399,
       colors: ["#8f6ed6", "#c9506b"], sizes: ["XS", "S", "M", "L"],
       rating: 4.8, reviews: 241, trending: 0,
+      image: "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=1000&fit=crop&q=80",
       description: "A lightweight floral midi with a wrap front tie and flutter sleeves, cut for warm days and dressed-up dinners alike.",
     },
     {
       name: "Corduroy Co-ord Set", cat: "Co-ords", price: 2499, mrp: 3299,
       colors: ["#e8b94d", "#8f6ed6"], sizes: ["S", "M", "L"],
       rating: 4.7, reviews: 98, trending: 0,
+      image: "https://images.unsplash.com/photo-1622445275576-721325763afe?w=800&h=1000&fit=crop&q=80",
       description: "A matching corduroy jacket and trouser set for when you want a whole outfit sorted in one click, no styling required.",
     },
     {
       name: "Straight Fit Denim Jeans", cat: "Denim", price: 1599, mrp: 2199,
       colors: ["#5c6bc0", "#3b3540"], sizes: ["S", "M", "L", "XL"],
       rating: 4.4, reviews: 172, trending: 0,
+      image: "https://images.unsplash.com/photo-1560243563-062bfc001d68?w=800&h=1000&fit=crop&q=80",
       description: "A classic mid-rise straight leg in rigid denim that softens with wear — the everyday jean that goes with everything else in your closet.",
     },
     {
       name: "Satin Cami Top", cat: "Tops", price: 999, mrp: 1499,
       colors: ["#c9506b", "#e8b94d"], sizes: ["XS", "S", "M"],
       rating: 4.6, reviews: 74, trending: 0,
+      image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&h=1000&fit=crop&q=80",
       description: "A silky satin cami with adjustable straps and a subtle sheen, equally at home under a blazer or on its own.",
     },
     {
       name: "Ribbed Bodycon Dress", cat: "Dresses", price: 1499, mrp: 1999,
       colors: ["#ff3e7f", "#3b3540"], sizes: ["XS", "S", "M", "L"],
       rating: 4.3, reviews: 69, trending: 0,
+      image: "https://images.unsplash.com/photo-1568252542512-9fe8fe9c87bb?w=800&h=1000&fit=crop&q=80",
       description: "A stretch ribbed bodycon with a square neckline, built to hold its shape from the first wear to the fiftieth.",
     },
     {
       name: "Corduroy Flare Skirt", cat: "Cords", price: 1399, mrp: 1999,
       colors: ["#c9506b", "#e8b94d"], sizes: ["XS", "S", "M", "L"],
       rating: 4.6, reviews: 77, trending: 0,
+      image: "https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?w=800&h=1000&fit=crop&q=80",
       description: "A knee-length corduroy skirt with a flared hem and side zip, styled easily with tucked-in tops and ankle boots.",
     },
   ];
 
   const insertProduct = db.prepare(`
     INSERT INTO products (name, cat, price, mrp, sizes, colors, rating, reviews, image, description, trending)
-    VALUES (@name, @cat, @price, @mrp, @sizes, @colors, @rating, @reviews, '', @description, @trending)
+    VALUES (@name, @cat, @price, @mrp, @sizes, @colors, @rating, @reviews, @image, @description, @trending)
   `);
 
   const insertProducts = db.transaction((rows) => {
@@ -111,7 +120,7 @@ if (existingProducts === 0) {
         name: r.name, cat: r.cat, price: r.price, mrp: r.mrp,
         sizes: JSON.stringify(r.sizes), colors: JSON.stringify(r.colors),
         rating: r.rating, reviews: r.reviews,
-        description: r.description, trending: r.trending,
+        image: r.image, description: r.description, trending: r.trending,
       });
     }
   });
@@ -119,6 +128,29 @@ if (existingProducts === 0) {
   insertProducts(seed);
   console.log(`Seeded ${seed.length} products into flare.db`);
 }
+
+/* ---------- Backfill real photos onto rows seeded before images existed ---------- */
+/* Safe to run every startup: only touches rows that still have an empty image
+   and whose name matches one of our original seed products. Never overwrites
+   an image an admin has already set. */
+
+const seedImages = {
+  "Wide-Leg Cargo Cords": "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=800&h=1000&fit=crop&q=80",
+  "Flared Corduroy Trousers": "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&h=1000&fit=crop&q=80",
+  "Cropped Rib Knit Top": "https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=800&h=1000&fit=crop&q=80",
+  "Floral Wrap Midi Dress": "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=800&h=1000&fit=crop&q=80",
+  "Corduroy Co-ord Set": "https://images.unsplash.com/photo-1622445275576-721325763afe?w=800&h=1000&fit=crop&q=80",
+  "Straight Fit Denim Jeans": "https://images.unsplash.com/photo-1560243563-062bfc001d68?w=800&h=1000&fit=crop&q=80",
+  "Satin Cami Top": "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&h=1000&fit=crop&q=80",
+  "Ribbed Bodycon Dress": "https://images.unsplash.com/photo-1568252542512-9fe8fe9c87bb?w=800&h=1000&fit=crop&q=80",
+  "Corduroy Flare Skirt": "https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?w=800&h=1000&fit=crop&q=80",
+};
+
+const backfillImage = db.prepare("UPDATE products SET image = ? WHERE name = ? AND (image IS NULL OR image = '')");
+const backfillTx = db.transaction(() => {
+  for (const [name, url] of Object.entries(seedImages)) backfillImage.run(url, name);
+});
+backfillTx();
 
 /* ---------- Seed homepage settings (only runs once) ---------- */
 

@@ -1,0 +1,14 @@
+{
+  "name": "FLARE — Cords & Clothing",
+  "short_name": "FLARE",
+  "description": "Trend-led cords, tops, dresses and co-ords for girls who move fast and dress louder.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FBF3EA",
+  "theme_color": "#141115",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

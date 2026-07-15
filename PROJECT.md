@@ -11,7 +11,8 @@ A storefront (browse, filter, product detail, cart) plus a small admin panel, ba
 - **Storefront**: home page, shop/listing page with category + size + price filters and sorting, product detail page (gallery, color/size picker, tabs, related products), cart page with quantity controls and order summary.
 - **Mobile responsive**: breakpoints at 1024 / 900 / 768 / 640 / 420px covering nav (burger menu below 900px), hero, product grid, filters, product detail layout, and cart rows.
 - **Cart**: persisted per-browser in `localStorage` (key `flareCart`) — this is normal shopping-cart behavior, not something that needs a backend.
-- **Product images**: placeholder photos from picsum.photos, seeded per product id (`demoImg()` in `js/script.js`) so each product keeps a consistent-looking photo. Swap these for real product photography whenever it's ready — either paste a real image URL into the admin panel's "Image URL" field per product, or replace the `demoImg()` helper.
+- **Product images**: the 9 seed products each have a real, verified clothing photo (curated Unsplash URLs, stored in each product's `image` field via `db.js`). Products without an `image` set (e.g. new ones added via admin without an Image URL) fall back to a picsum.photos placeholder (`demoImg()` in `js/script.js`) so the layout never shows a broken image. Swap in real product photography anytime via the admin panel's "Image URL" field per product.
+- **App-like mobile experience**: a fixed bottom tab bar (Home / Shop / Cart / Menu) appears on phones (≤640px), mirroring common shopping-app navigation; `manifest.json` + `icon.svg` + apple meta tags let the site be added to a phone's home screen and open full-screen like an installed app.
 - **Product catalog**: 9 curated seed products (trimmed down from an earlier 16-item placeholder catalog) with real one-line descriptions instead of blank filler. 3 are marked `trending`.
 - **Trending products**: products can be flagged "Trending" from the admin panel. The homepage hero's price tag ("Starting ₹X") is computed live from whichever products are marked trending — no manual price editing needed. Bestsellers on the homepage also show trending items first.
 - **Admin-editable homepage hero**: the hero's eyebrow tag, headline (two lines), subtitle, both button labels, and badge text are all stored in the database (`settings` table) and editable from the admin panel's "Homepage Content" tab, with a live preview that updates as you type — no code changes or redeploys needed to update the homepage pitch.
@@ -24,14 +25,15 @@ A storefront (browse, filter, product detail, cart) plus a small admin panel, ba
 
 ```
 demoWeb/
-├── index.html, shop.html, product.html, cart.html   ← storefront pages
+├── index.html, shop.html, product.html, cart.html   ← storefront pages (each has a mobile-tabbar nav)
 ├── admin.html                                        ← admin panel page
+├── manifest.json, icon.svg                           ← PWA / add-to-home-screen assets
 ├── css/style.css                                     ← storefront styles
 ├── css/admin.css                                      ← admin-only styles
 ├── js/script.js                                       ← storefront logic, fetches products from /api/products
 ├── js/admin.js                                        ← admin panel logic, calls /api/admin/login + /api/products
 ├── server.js                                          ← Express server: serves the site + the API
-├── db.js                                              ← SQLite setup, schema, and seed data
+├── db.js                                              ← SQLite setup, schema, seed data + image backfill
 ├── data/flare.db                                      ← the database file (created on first run, gitignored)
 └── package.json
 ```
@@ -91,3 +93,5 @@ This is a small persistent Node server with a SQLite file on disk — it needs a
 - `server.js` blocks direct HTTP access to itself, `db.js`, `package.json`, and the `/data` folder — don't remove that middleware, it's the only thing stopping the admin password defaults and the raw database file from being publicly downloadable.
 - The `settings` table is a plain key/value store (`key TEXT PRIMARY KEY, value TEXT`) so adding more editable homepage fields later is just adding a key to `SETTINGS_KEYS` in `server.js` plus a form field in `admin.html` — no schema migration needed.
 - Admin panel now has two tabs (`switchTab()` in `js/admin.js`): Products and Homepage Content. If adding a third tab (e.g. site-wide banner text, footer links), follow the same `tab-panel-admin` / `tab-link` pattern for consistency.
+- Product images: `db.js` seeds each of the 9 products with a real Unsplash photo URL in the `image` column, plus a startup "backfill" query that fills in `image` for any row matching a seed product name whose image is still blank (safe to leave in — it never overwrites an image an admin has set). Frontend rendering goes through `productImage(p, w, h)` in `js/script.js`, which prefers `p.image` and falls back to the picsum placeholder — any new image logic should go through that helper, not call `demoImg()` directly.
+- `icon.svg` is a plain SVG (not a raster PNG) used for the favicon, apple-touch-icon, and manifest icon — this was a deliberate tool constraint (no way to write binary PNG bytes in this environment), and works in effectively all modern browsers/iOS versions for home-screen install. If pixel-perfect PNG icons matter later, generate proper 192x192/512x512 PNGs and swap the `<link>`/manifest references.

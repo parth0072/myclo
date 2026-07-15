@@ -416,6 +416,36 @@ footer{background:var(--black);color:rgba(255,255,255,.7);padding:60px 0 24px;}
 .empty-cart{text-align:center;padding:60px 20px;}
 .empty-cart .big-emoji{font-size:50px;margin-bottom:14px;}
 
+/* ---------- Mobile app-style bottom tab bar ---------- */
+.mobile-tabbar{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;z-index:200;
+  background:rgba(251,243,234,0.96);
+  backdrop-filter:blur(10px);
+  border-top:1px solid var(--line);
+  padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 20px rgba(20,17,21,.06);
+}
+.tab-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:6px 4px;position:relative;color:var(--gray);
+}
+.tab-item svg{width:22px;height:22px;stroke:var(--gray);transition:stroke .15s;}
+.tab-item span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+.tab-item.active{color:var(--black);}
+.tab-item.active svg{stroke:var(--pink);}
+.tab-item .cart-count{
+  position:absolute;top:0;right:22%;
+  background:var(--pink);color:#fff;font-size:9px;font-weight:800;
+  width:15px;height:15px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+}
+
+@media (max-width:640px){
+  .mobile-tabbar{display:flex;}
+  body{padding-bottom:64px;}
+}
+
 /* ---------- Toast ---------- */
 .toast{
   position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(120%);
