@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shop All — FLARE</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="marquee-strip">
+  <div class="marquee-track">
+    <span>✦ FREE SHIPPING OVER ₹999</span>
+    <span>✦ NEW DROP EVERY FRIDAY</span>
+    <span>✦ EASY 14-DAY RETURNS</span>
+    <span>✦ FLAT 20% OFF ON FIRST ORDER — CODE: FLARE20</span>
+    <span>✦ FREE SHIPPING OVER ₹999</span>
+    <span>✦ NEW DROP EVERY FRIDAY</span>
+  </div>
+</div>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a href="index.html" class="logo">FL<span>A</span>RE</a>
+    <ul class="nav-links">
+      <li><a href="shop.html" class="active">Shop All</a></li>
+      <li><a href="shop.html?cat=Cords">Cords</a></li>
+      <li><a href="shop.html?cat=Tops">Tops</a></li>
+      <li><a href="shop.html?cat=Dresses">Dresses</a></li>
+      <li><a href="shop.html?cat=Co-ords">Co-ords</a></li>
+      <li><a href="shop.html?cat=Denim">Denim</a></li>
+    </ul>
+    <div class="nav-icons">
+      <button class="icon-btn" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button class="icon-btn" aria-label="Account">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </button>
+      <a href="cart.html" class="icon-btn" aria-label="Cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span class="cart-count">0</span>
+      </a>
+      <button class="icon-btn burger" onclick="toggleMobileMenu()" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="breadcrumb"><a href="index.html">Home</a> / Shop All</div>
+
+  <div class="shop-layout">
+    <aside>
+      <div class="filter-box">
+        <div class="filter-title">Category</div>
+        <label class="filter-opt"><input type="checkbox" class="cat-filter" value="Cords"> Cords</label>
+        <label class="filter-opt"><input type="checkbox" class="cat-filter" value="Tops"> Tops</label>
+        <label class="filter-opt"><input type="checkbox" class="cat-filter" value="Dresses"> Dresses</label>
+        <label class="filter-opt"><input type="checkbox" class="cat-filter" value="Co-ords"> Co-ords</label>
+        <label class="filter-opt"><input type="checkbox" class="cat-filter" value="Denim"> Denim</label>
+      </div>
+      <div class="filter-box">
+        <div class="filter-title">Size</div>
+        <div class="size-opts">
+          <span class="size-opt size-filter" data-size="XS">XS</span>
+          <span class="size-opt size-filter" data-size="S">S</span>
+          <span class="size-opt size-filter" data-size="M">M</span>
+          <span class="size-opt size-filter" data-size="L">L</span>
+          <span class="size-opt size-filter" data-size="XL">XL</span>
+        </div>
+      </div>
+      <div class="filter-box">
+        <div class="filter-title">Price</div>
+        <input type="range" id="price-range" min="500" max="3500" step="100" value="3500" style="width:100%;accent-color:var(--pink);">
+        <div id="price-range-val" style="font-size:12.5px;color:var(--gray);margin-top:6px;">Up to ₹3500</div>
+      </div>
+    </aside>
+
+    <div>
+      <div class="shop-toolbar">
+        <span class="result-count" id="result-count">16 products</span>
+        <select class="sort-select" id="sort-select">
+          <option value="popular">Sort: Popularity</option>
+          <option value="price-low">Price: Low to High</option>
+          <option value="price-high">Price: High to Low</option>
+          <option value="rating">Highest Rated</option>
+        </select>
+      </div>
+      <div class="product-grid" id="shop-grid"></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-logo">FL<span>A</span>RE</div>
+        <p style="font-size:13px;line-height:1.7;max-width:260px;">Bold, trend-first clothing for girls who set the pace.</p>
+      </div>
+      <div>
+        <h4>Shop</h4>
+        <ul>
+          <li><a href="shop.html?cat=Cords">Cords</a></li>
+          <li><a href="shop.html?cat=Tops">Tops</a></li>
+          <li><a href="shop.html?cat=Dresses">Dresses</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Help</h4>
+        <ul>
+          <li><a href="#">Track Order</a></li>
+          <li><a href="#">Returns & Exchange</a></li>
+          <li><a href="#">Size Guide</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#">About FLARE</a></li>
+          <li><a href="#">Careers</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 FLARE Fashion Pvt. Ltd. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/script.js"></script>
+</body>
+</html>

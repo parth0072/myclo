@@ -1,0 +1,106 @@
+/* ==========================================================
+   FLARE — Admin panel styles (loaded after style.css)
+   ========================================================== */
+
+body.admin-body{background:var(--cream);}
+
+.admin-shell{max-width:1100px;margin:0 auto;padding:36px 24px 80px;}
+
+.admin-topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:30px;flex-wrap:wrap;gap:14px;
+}
+.admin-badge{
+  background:var(--black);color:#fff;font-size:11px;font-weight:800;
+  text-transform:uppercase;letter-spacing:0.06em;padding:4px 10px;border-radius:6px;
+  margin-left:10px;vertical-align:middle;
+}
+
+/* ---------- Login ---------- */
+.login-wrap{
+  min-height:70vh;display:flex;align-items:center;justify-content:center;
+}
+.login-card{
+  background:var(--card);border:1px solid var(--line);border-radius:18px;
+  padding:40px 34px;width:100%;max-width:360px;text-align:center;
+}
+.login-card .logo{display:block;margin-bottom:6px;font-size:30px;}
+.login-card p{color:var(--gray);font-size:13.5px;margin-bottom:24px;}
+.login-card input{
+  width:100%;padding:13px 16px;border-radius:10px;border:1.5px solid var(--line);
+  font-family:inherit;font-size:14px;margin-bottom:14px;background:#fff;
+}
+.login-card input:focus{outline:2px solid var(--pink);}
+.login-error{
+  color:var(--pink-dark);font-size:12.5px;font-weight:600;
+  margin:-4px 0 14px;display:none;
+}
+.login-error.show{display:block;}
+
+/* ---------- Dashboard ---------- */
+.admin-panel{
+  background:var(--card);border:1px solid var(--line);border-radius:16px;
+  padding:26px;margin-bottom:24px;
+}
+.admin-panel-head{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;flex-wrap:wrap;gap:12px;
+}
+.admin-panel-head h2{font-size:18px;}
+
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.stat-card{
+  background:var(--lilac-soft);border-radius:12px;padding:16px 18px;
+}
+.stat-card .num{font-family:'Poppins',sans-serif;font-weight:800;font-size:22px;}
+.stat-card .lbl{font-size:11.5px;color:var(--gray);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;}
+
+/* ---------- Form ---------- */
+.pform{display:none;}
+.pform.open{display:block;}
+.pform-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.pform-grid.full{grid-template-columns:1fr;}
+.field label{
+  display:block;font-size:12px;font-weight:700;text-transform:uppercase;
+  letter-spacing:0.04em;margin-bottom:6px;color:#4a4550;
+}
+.field input,.field select,.field textarea{
+  width:100%;padding:11px 14px;border-radius:10px;border:1.5px solid var(--line);
+  font-family:inherit;font-size:13.5px;background:#fff;
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--pink);}
+.field textarea{resize:vertical;min-height:70px;}
+.field small{display:block;color:var(--gray);font-size:11.5px;margin-top:5px;}
+.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:6px;}
+.form-error{
+  background:#fdeaef;color:var(--pink-dark);font-size:13px;font-weight:600;
+  padding:10px 14px;border-radius:10px;margin-bottom:16px;display:none;
+}
+.form-error.show{display:block;}
+
+/* ---------- Table ---------- */
+.admin-table-wrap{overflow-x:auto;}
+table.admin-table{width:100%;border-collapse:collapse;font-size:13.5px;}
+.admin-table th{
+  text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;
+  color:var(--gray);font-weight:700;padding:10px 12px;border-bottom:1.5px solid var(--line);
+  white-space:nowrap;
+}
+.admin-table td{padding:12px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap;}
+.admin-table tr:last-child td{border-bottom:none;}
+.p-swatch-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle;}
+.row-actions{display:flex;gap:8px;}
+.row-actions button{
+  font-size:12px;font-weight:700;padding:7px 12px;border-radius:8px;
+  border:1.5px solid var(--line);background:#fff;
+}
+.row-actions button:hover{border-color:var(--black);}
+.row-actions .danger:hover{border-color:var(--pink-dark);color:var(--pink-dark);}
+.empty-row td{text-align:center;color:var(--gray);padding:40px 0;}
+
+@media (max-width:640px){
+  .stat-row{grid-template-columns:repeat(2,1fr);}
+  .pform-grid{grid-template-columns:1fr;}
+  .admin-shell{padding:24px 16px 60px;}
+  .login-card{padding:30px 22px;}
+}

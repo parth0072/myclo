@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Bag — FLARE</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="marquee-strip">
+  <div class="marquee-track">
+    <span>✦ FREE SHIPPING OVER ₹999</span>
+    <span>✦ NEW DROP EVERY FRIDAY</span>
+    <span>✦ EASY 14-DAY RETURNS</span>
+    <span>✦ FLAT 20% OFF ON FIRST ORDER — CODE: FLARE20</span>
+  </div>
+</div>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a href="index.html" class="logo">FL<span>A</span>RE</a>
+    <ul class="nav-links">
+      <li><a href="shop.html">Shop All</a></li>
+      <li><a href="shop.html?cat=Cords">Cords</a></li>
+      <li><a href="shop.html?cat=Tops">Tops</a></li>
+      <li><a href="shop.html?cat=Dresses">Dresses</a></li>
+      <li><a href="shop.html?cat=Co-ords">Co-ords</a></li>
+    </ul>
+    <div class="nav-icons">
+      <button class="icon-btn" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button class="icon-btn" aria-label="Account">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </button>
+      <a href="cart.html" class="icon-btn active" aria-label="Cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span class="cart-count">0</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="breadcrumb"><a href="index.html">Home</a> / Your Bag</div>
+  <h1 class="section-title" style="margin:20px 0 10px;">Your Bag</h1>
+
+  <div class="cart-layout">
+    <div id="cart-items"></div>
+
+    <div class="summary-box" id="cart-summary">
+      <h3 style="font-size:18px;margin-bottom:18px;">Order Summary</h3>
+      <div class="summary-row"><span>Subtotal</span><span id="sum-subtotal">₹0</span></div>
+      <div class="summary-row"><span>Shipping</span><span id="sum-shipping">Free</span></div>
+      <div class="promo-row">
+        <input type="text" placeholder="Promo code">
+        <button class="btn btn-outline btn-sm">Apply</button>
+      </div>
+      <div class="summary-row total"><span>Total</span><span id="sum-total">₹0</span></div>
+      <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="showToast('Checkout is a demo in this preview 🛍️')">Checkout</button>
+      <a href="shop.html" style="display:block;text-align:center;margin-top:14px;font-size:13px;font-weight:600;color:var(--gray);">← Continue Shopping</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="container">
+    <div class="footer-bottom" style="border-top:none;padding-top:0;">
+      <span>© 2026 FLARE Fashion Pvt. Ltd. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/script.js"></script>
+</body>
+</html>

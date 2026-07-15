@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product — FLARE</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="marquee-strip">
+  <div class="marquee-track">
+    <span>✦ FREE SHIPPING OVER ₹999</span>
+    <span>✦ NEW DROP EVERY FRIDAY</span>
+    <span>✦ EASY 14-DAY RETURNS</span>
+    <span>✦ FLAT 20% OFF ON FIRST ORDER — CODE: FLARE20</span>
+  </div>
+</div>
+
+<header class="site-header">
+  <div class="nav-row">
+    <a href="index.html" class="logo">FL<span>A</span>RE</a>
+    <ul class="nav-links">
+      <li><a href="shop.html">Shop All</a></li>
+      <li><a href="shop.html?cat=Cords">Cords</a></li>
+      <li><a href="shop.html?cat=Tops">Tops</a></li>
+      <li><a href="shop.html?cat=Dresses">Dresses</a></li>
+      <li><a href="shop.html?cat=Co-ords">Co-ords</a></li>
+    </ul>
+    <div class="nav-icons">
+      <button class="icon-btn" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button class="icon-btn" aria-label="Account">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </button>
+      <a href="cart.html" class="icon-btn" aria-label="Cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span class="cart-count">0</span>
+      </a>
+      <button class="icon-btn burger" onclick="toggleMobileMenu()" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="breadcrumb"><a href="index.html">Home</a> / <a href="shop.html">Shop</a> / <span id="pd-crumb">Product</span></div>
+
+  <div class="pd-layout">
+    <div>
+      <div class="pd-gallery-main g1" id="pd-main">Loading…</div>
+      <div class="pd-thumbs" id="pd-thumbs"></div>
+    </div>
+
+    <div class="pd-info">
+      <span class="pcard-cat" id="pd-cat">Category</span>
+      <h1 class="pd-title" id="pd-title">Product name</h1>
+      <div class="star-row">
+        <span class="stars">★★★★★</span>
+        <span id="pd-rating-count">4.5 (0 reviews)</span>
+      </div>
+      <div class="pd-price-row">
+        <span class="price" id="pd-price">₹0</span>
+        <span class="price-strike" id="pd-mrp">₹0</span>
+        <span class="price-off" id="pd-off">0% off</span>
+      </div>
+
+      <div class="pd-block">
+        <div class="pd-block-label">Color</div>
+        <div class="color-row" id="pd-colors"></div>
+      </div>
+
+      <div class="pd-block">
+        <div class="pd-block-label"><span>Size</span><a href="#" style="color:var(--pink-dark);font-weight:600;">Size Guide</a></div>
+        <div class="size-row" id="pd-sizes"></div>
+      </div>
+
+      <div class="pd-block">
+        <div class="pd-block-label">Quantity</div>
+        <div class="qty-row">
+          <div class="qty-box">
+            <button id="qty-dec">−</button>
+            <span id="qty-display">1</span>
+            <button id="qty-inc">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pd-cta-row">
+        <button class="btn btn-primary btn-block" id="pd-add-cart">Add to Bag</button>
+        <button class="btn btn-outline" aria-label="Wishlist">♡</button>
+      </div>
+
+      <div class="info-strip">
+        <div><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><rect x="1" y="7" width="15" height="13" rx="2"/><path d="M16 10h4l3 3v4h-7z"/></svg>Free shipping ₹999+</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>14-day returns</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/></svg>Cash on delivery</div>
+      </div>
+
+      <div class="tabs-row" style="margin-top:30px;">
+        <button class="tab-btn active" onclick="document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.getElementById('tab-desc').classList.add('active');document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');">Description</button>
+        <button class="tab-btn" onclick="document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.getElementById('tab-size').classList.add('active');document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');">Size & Fit</button>
+        <button class="tab-btn" onclick="document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.getElementById('tab-care').classList.add('active');document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');">Care</button>
+      </div>
+      <div class="tab-panel active" id="tab-desc">Crafted from soft-touch corduroy with a comfortable stretch waistband. Designed for an easy, all-day fit that pairs effortlessly with cropped tops and sneakers. Part of the new season core edit.</div>
+      <div class="tab-panel" id="tab-care">Machine wash cold with like colors. Do not bleach. Tumble dry low. Warm iron if needed, avoiding direct heat on prints.</div>
+      <div class="tab-panel" id="tab-size">Model is 5'6" and wears size S. Fits true to size — for an oversized look, size up. Refer to our size guide for detailed measurements.</div>
+    </div>
+  </div>
+
+  <section class="section" style="padding-top:10px;">
+    <div class="section-head">
+      <div>
+        <span class="section-tag">You may also like</span>
+        <h2 class="section-title">Complete the look</h2>
+      </div>
+    </div>
+    <div class="product-grid" id="related-grid"></div>
+  </section>
+</div>
+
+<footer>
+  <div class="container">
+    <div class="footer-bottom" style="border-top:none;padding-top:0;">
+      <span>© 2026 FLARE Fashion Pvt. Ltd. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/script.js"></script>
+</body>
+</html>

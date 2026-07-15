@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — FLARE</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="admin-body">
+
+<div id="login-screen" class="login-wrap">
+  <div class="login-card">
+    <span class="logo">FL<span style="color:var(--pink);">A</span>RE</span>
+    <p>Admin panel — sign in to manage products.</p>
+    <input type="password" id="login-password" placeholder="Admin password" autocomplete="current-password">
+    <div class="login-error" id="login-error">Incorrect password. Try again.</div>
+    <button class="btn btn-dark btn-block" id="login-btn">Sign In</button>
+  </div>
+</div>
+
+<div id="dashboard-screen" class="admin-shell" style="display:none;">
+  <div class="admin-topbar">
+    <div>
+      <span class="logo" style="font-size:22px;">FL<span style="color:var(--pink);">A</span>RE</span>
+      <span class="admin-badge">Admin</span>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <a href="index.html" class="btn btn-outline btn-sm">View Store</a>
+      <button class="btn btn-outline btn-sm" id="logout-btn">Log Out</button>
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat-card"><div class="num" id="stat-count">0</div><div class="lbl">Products</div></div>
+    <div class="stat-card"><div class="num" id="stat-cats">0</div><div class="lbl">Categories</div></div>
+    <div class="stat-card"><div class="num" id="stat-avgprice">₹0</div><div class="lbl">Avg. Price</div></div>
+    <div class="stat-card"><div class="num" id="stat-avgrating">0</div><div class="lbl">Avg. Rating</div></div>
+  </div>
+
+  <div class="admin-panel">
+    <div class="admin-panel-head">
+      <h2>Add / Edit Product</h2>
+      <button class="btn btn-primary btn-sm" id="toggle-form-btn">+ Add Product</button>
+    </div>
+
+    <form class="pform" id="product-form">
+      <div class="form-error" id="form-error"></div>
+      <input type="hidden" id="p-id">
+      <div class="pform-grid">
+        <div class="field">
+          <label>Product Name</label>
+          <input type="text" id="p-name" placeholder="e.g. Wide-Leg Cargo Cords" required>
+        </div>
+        <div class="field">
+          <label>Category</label>
+          <input type="text" id="p-cat" list="cat-options" placeholder="e.g. Cords" required>
+          <datalist id="cat-options">
+            <option value="Cords"><option value="Tops"><option value="Dresses">
+            <option value="Co-ords"><option value="Denim">
+          </datalist>
+        </div>
+        <div class="field">
+          <label>Price (₹)</label>
+          <input type="number" id="p-price" min="0" step="1" placeholder="1799" required>
+        </div>
+        <div class="field">
+          <label>MRP / Strike-through (₹)</label>
+          <input type="number" id="p-mrp" min="0" step="1" placeholder="2599" required>
+        </div>
+        <div class="field">
+          <label>Sizes</label>
+          <input type="text" id="p-sizes" placeholder="XS, S, M, L, XL">
+          <small>Comma-separated</small>
+        </div>
+        <div class="field">
+          <label>Colors</label>
+          <input type="text" id="p-colors" placeholder="#8f6ed6, #3b3540">
+          <small>Comma-separated hex codes</small>
+        </div>
+        <div class="field">
+          <label>Rating</label>
+          <input type="number" id="p-rating" min="0" max="5" step="0.1" placeholder="4.5">
+        </div>
+        <div class="field">
+          <label>Review Count</label>
+          <input type="number" id="p-reviews" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+      <div class="pform-grid full">
+        <div class="field">
+          <label>Image URL <span style="text-transform:none;font-weight:400;">(optional — leave blank to use a placeholder photo)</span></label>
+          <input type="text" id="p-image" placeholder="https://...">
+        </div>
+        <div class="field">
+          <label>Description <span style="text-transform:none;font-weight:400;">(optional)</span></label>
+          <textarea id="p-description" placeholder="Fabric, fit, styling notes shown on the product page..."></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline btn-sm" id="cancel-form-btn">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="save-btn">Save Product</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="admin-panel">
+    <div class="admin-panel-head">
+      <h2>All Products</h2>
+      <span class="result-count" id="table-count"></span>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>ID</th><th>Product</th><th>Category</th><th>Price</th><th>MRP</th><th>Rating</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="product-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="js/admin.js"></script>
+</body>
+</html>
