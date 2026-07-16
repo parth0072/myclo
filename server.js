@@ -5,9 +5,12 @@
    Run: npm install && npm start   (defaults to http://localhost:3000)
    ========================================================== */
 
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const path = require("path");
 const db = require("./db");
 
@@ -15,6 +18,17 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "flare-dev-secret-change-me";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "flareadmin123";
+
+// Razorpay is optional to configure — if the keys aren't set yet, checkout
+// endpoints return a clear "not configured" error instead of crashing the
+// whole server. Get real keys from the Razorpay Dashboard > Settings > API Keys.
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "";
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "";
+let razorpay = null;
+if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
+  const Razorpay = require("razorpay");
+  razorpay = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
+}
 
 app.use(cors());
 app.use(express.json());
@@ -28,6 +42,11 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.static(__dirname));
+
+// Clean URL for the admin panel — /admin works the same as /admin.html
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "admin.html"));
+});
 
 /* ---------------- Auth ---------------- */
 
@@ -151,7 +170,7 @@ app.delete("/api/products/:id", requireAdmin, (req, res) => {
 
 const SETTINGS_KEYS = [
   "hero_eyebrow", "hero_title_1", "hero_title_2", "hero_subtitle",
-  "hero_cta_primary", "hero_cta_secondary", "hero_badge",
+  "hero_cta_primary", "hero_cta_secondary", "hero_badge", "deposit_percent",
 ];
 
 app.get("/api/settings", (req, res) => {
@@ -181,8 +200,134 @@ app.put("/api/settings", requireAdmin, (req, res) => {
   res.json(out);
 });
 
+/* ---------------- Checkout / pre-book deposit API (Razorpay) ----------------
+   Pre-sale model: the customer pays a partial "deposit" now to reserve their
+   order, with the balance due later (e.g. on delivery). The deposit percentage
+   is admin-configurable via the `deposit_percent` setting. Prices are always
+   recomputed from the database here — never trusted from the client — so a
+   tampered request can't reserve an item for less than its real price. */
+
+function getDepositPercent() {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'deposit_percent'").get();
+  const n = row ? Number(row.value) : NaN;
+  if (!Number.isFinite(n) || n <= 0 || n > 100) return 20;
+  return n;
+}
+
+app.post("/api/checkout/create-order", (req, res) => {
+  if (!razorpay) {
+    return res.status(503).json({ error: "Payments aren't configured yet. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to enable checkout." });
+  }
+
+  const { items, customerName, customerPhone, customerEmail } = req.body || {};
+
+  if (!customerName || !String(customerName).trim()) return res.status(400).json({ error: "Name is required" });
+  if (!customerPhone || !String(customerPhone).trim()) return res.status(400).json({ error: "Phone number is required" });
+  if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: "Your bag is empty" });
+
+  // Recompute the order total from the DB — client-sent prices are ignored.
+  const lineItems = [];
+  let cartTotal = 0;
+  for (const it of items) {
+    const product = db.prepare("SELECT * FROM products WHERE id = ?").get(it.id);
+    if (!product) return res.status(400).json({ error: `Product ${it.id} no longer exists` });
+    const qty = Math.max(1, Math.min(20, Math.round(Number(it.qty) || 1)));
+    const lineTotal = product.price * qty;
+    cartTotal += lineTotal;
+    lineItems.push({
+      id: product.id, name: product.name, price: product.price, qty,
+      size: it.size ? String(it.size) : "", color: it.color ? String(it.color) : "",
+    });
+  }
+  if (cartTotal <= 0) return res.status(400).json({ error: "Invalid order total" });
+
+  const depositPercent = getDepositPercent();
+  const depositAmount = Math.max(1, Math.round((cartTotal * depositPercent) / 100));
+  const balanceDue = cartTotal - depositAmount;
+
+  razorpay.orders.create({
+    amount: depositAmount * 100, // paise
+    currency: "INR",
+    receipt: `flare_${Date.now()}`,
+  }).then((order) => {
+    const info = db.prepare(`
+      INSERT INTO bookings (customer_name, customer_phone, customer_email, items, cart_total, deposit_amount, balance_due, razorpay_order_id, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'created')
+    `).run(
+      String(customerName).trim(), String(customerPhone).trim(), customerEmail ? String(customerEmail).trim() : "",
+      JSON.stringify(lineItems), cartTotal, depositAmount, balanceDue, order.id
+    );
+
+    res.json({
+      key_id: RAZORPAY_KEY_ID,
+      razorpay_order_id: order.id,
+      booking_id: info.lastInsertRowid,
+      amount: depositAmount,
+      currency: "INR",
+      cart_total: cartTotal,
+      deposit_amount: depositAmount,
+      balance_due: balanceDue,
+      deposit_percent: depositPercent,
+    });
+  }).catch((err) => {
+    console.error("Razorpay order creation failed:", err);
+    res.status(502).json({ error: "Could not start payment. Please try again." });
+  });
+});
+
+app.post("/api/checkout/verify", (req, res) => {
+  if (!razorpay) return res.status(503).json({ error: "Payments aren't configured yet" });
+
+  const { booking_id, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
+  if (!booking_id || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    return res.status(400).json({ error: "Missing payment details" });
+  }
+
+  const booking = db.prepare("SELECT * FROM bookings WHERE id = ?").get(booking_id);
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+  if (booking.razorpay_order_id !== razorpay_order_id) {
+    return res.status(400).json({ error: "Order mismatch" });
+  }
+
+  const expected = crypto
+    .createHmac("sha256", RAZORPAY_KEY_SECRET)
+    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    .digest("hex");
+
+  const expectedBuf = Buffer.from(expected, "utf8");
+  const gotBuf = Buffer.from(String(razorpay_signature), "utf8");
+  const valid = expectedBuf.length === gotBuf.length && crypto.timingSafeEqual(expectedBuf, gotBuf);
+
+  if (!valid) {
+    db.prepare("UPDATE bookings SET status = 'failed' WHERE id = ?").run(booking_id);
+    return res.status(400).json({ error: "Payment verification failed" });
+  }
+
+  db.prepare("UPDATE bookings SET status = 'paid', razorpay_payment_id = ? WHERE id = ?").run(razorpay_payment_id, booking_id);
+  res.json({ ok: true, balance_due: booking.balance_due, cart_total: booking.cart_total, deposit_amount: booking.deposit_amount });
+});
+
+app.get("/api/bookings", requireAdmin, (req, res) => {
+  const rows = db.prepare("SELECT * FROM bookings ORDER BY id DESC").all();
+  res.json(rows.map((r) => ({
+    id: r.id,
+    customer_name: r.customer_name,
+    customer_phone: r.customer_phone,
+    customer_email: r.customer_email,
+    items: JSON.parse(r.items || "[]"),
+    cart_total: r.cart_total,
+    deposit_amount: r.deposit_amount,
+    balance_due: r.balance_due,
+    status: r.status,
+    created_at: r.created_at,
+  })));
+});
+
 app.listen(PORT, () => {
   console.log(`FLARE server running at http://localhost:${PORT}`);
-  console.log(`Admin panel:  http://localhost:${PORT}/admin.html`);
+  console.log(`Admin panel:  http://localhost:${PORT}/admin`);
   console.log(`Admin password (change via ADMIN_PASSWORD env var): ${ADMIN_PASSWORD}`);
+  console.log(razorpay
+    ? "Razorpay: configured — checkout deposits are live."
+    : "Razorpay: NOT configured — set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to enable checkout.");
 });

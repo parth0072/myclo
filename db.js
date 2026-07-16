@@ -36,6 +36,21 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL DEFAULT ''
   );
+
+  CREATE TABLE IF NOT EXISTS bookings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_name TEXT NOT NULL,
+    customer_phone TEXT NOT NULL,
+    customer_email TEXT NOT NULL DEFAULT '',
+    items TEXT NOT NULL DEFAULT '[]',
+    cart_total INTEGER NOT NULL,
+    deposit_amount INTEGER NOT NULL,
+    balance_due INTEGER NOT NULL,
+    razorpay_order_id TEXT NOT NULL DEFAULT '',
+    razorpay_payment_id TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'created',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 /* ---------- Seed products (only runs once, on an empty table) ---------- */
@@ -165,6 +180,7 @@ if (existingSettings === 0) {
     hero_cta_primary: "Shop Cords",
     hero_cta_secondary: "Explore All",
     hero_badge: "🔥 Bestseller",
+    deposit_percent: "20",
   };
 
   const insertSetting = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
@@ -174,5 +190,9 @@ if (existingSettings === 0) {
   insertSettings(defaults);
   console.log("Seeded default homepage settings");
 }
+
+// Backfill deposit_percent for databases seeded before payments existed —
+// never overwrites a value the admin has already set.
+db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('deposit_percent', '20')").run();
 
 module.exports = db;

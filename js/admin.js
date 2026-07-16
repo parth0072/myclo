@@ -256,6 +256,7 @@ async function loadSettingsAdmin(){
   document.getElementById("s-cta1").value = SETTINGS.hero_cta_primary || "";
   document.getElementById("s-cta2").value = SETTINGS.hero_cta_secondary || "";
   document.getElementById("s-badge").value = SETTINGS.hero_badge || "";
+  document.getElementById("deposit-percent").value = SETTINGS.deposit_percent || "20";
   updateHeroPreview();
 }
 
@@ -322,6 +323,78 @@ async function submitSettingsForm(e){
   }
 }
 
+/* ---------- Bookings & payments ---------- */
+
+async function submitDepositForm(e){
+  e.preventDefault();
+  const errBox = document.getElementById("deposit-error");
+  errBox.classList.remove("show");
+
+  const value = document.getElementById("deposit-percent").value;
+  const n = Number(value);
+  if(!value || !Number.isFinite(n) || n <= 0 || n > 100){
+    errBox.textContent = "Enter a percentage between 1 and 100.";
+    errBox.classList.add("show");
+    return;
+  }
+
+  const btn = document.getElementById("deposit-save-btn");
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+
+  try{
+    const res = await authedFetch("/api/settings", {
+      method: "PUT",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ deposit_percent: String(n) })
+    });
+    const data = await res.json();
+    if(!res.ok){
+      errBox.textContent = data.error || "Something went wrong saving the deposit percentage.";
+      errBox.classList.add("show");
+      return;
+    }
+    SETTINGS = data;
+    btn.textContent = "Saved ✓";
+    setTimeout(()=>{ btn.textContent = originalLabel; }, 1800);
+  }catch(e){ /* handled by authedFetch on 401 */ }
+  finally{
+    btn.disabled = false;
+  }
+}
+
+async function loadBookings(){
+  const tbody = document.getElementById("bookings-tbody");
+  try{
+    const res = await authedFetch("/api/bookings");
+    const bookings = await res.json();
+    document.getElementById("bookings-count").textContent = `${bookings.length} reservation${bookings.length===1?"":"s"}`;
+
+    if(!bookings.length){
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No reservations yet. They'll show up here as customers pay their deposit at checkout.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = bookings.map(b=>{
+      const itemsSummary = (b.items||[]).map(i=>`${i.name} ×${i.qty}`).join(", ");
+      const statusClass = b.status === "paid" ? "status-paid" : b.status === "failed" ? "status-failed" : "status-pending";
+      const date = new Date(b.created_at).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" });
+      return `
+      <tr>
+        <td>${escapeHtml(b.customer_name)}<br><span style="color:var(--gray);font-size:12px;">${escapeHtml(b.customer_phone)}</span></td>
+        <td>${escapeHtml(itemsSummary)}</td>
+        <td>₹${b.cart_total}</td>
+        <td>₹${b.deposit_amount}</td>
+        <td>₹${b.balance_due}</td>
+        <td><span class="booking-status ${statusClass}">${escapeHtml(b.status)}</span></td>
+        <td>${date}</td>
+      </tr>`;
+    }).join("");
+  }catch(e){
+    if(tbody) tbody.innerHTML = `<tr class="empty-row"><td colspan="7">Couldn't load reservations.</td></tr>`;
+  }
+}
+
 /* ---------- Tabs ---------- */
 
 function switchTab(name){
@@ -333,6 +406,7 @@ function switchTab(name){
       panel.classList.add("active");
       requestAnimationFrame(()=> panel.classList.add("in"));
       if(name === "content") updateHeroPreview();
+      if(name === "bookings") loadBookings();
     } else {
       panel.classList.remove("active", "in");
       panel.style.display = "none";
@@ -368,6 +442,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
   ["s-eyebrow","s-title1","s-title2","s-subtitle","s-cta1","s-cta2","s-badge"].forEach(id=>{
     document.getElementById(id).addEventListener("input", updateHeroPreview);
   });
+
+  document.getElementById("deposit-form").addEventListener("submit", submitDepositForm);
 
   if(getToken()){
     showDashboard();

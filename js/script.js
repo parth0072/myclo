@@ -343,6 +343,142 @@ function renderCartPage(){
   document.getElementById("sum-total").textContent = `₹${total}`;
 }
 
+/* ---------- Checkout: pre-book deposit flow (Razorpay) ----------
+   Customer pays a partial deposit now to reserve their cart, balance due
+   later. Prices/totals shown here are for display only — the server always
+   recomputes the real total and deposit from the database before creating
+   the Razorpay order, so nothing here needs to be trusted. */
+let __checkoutOrder = null;
+
+function depositPercentPreview(){
+  const n = Number(SETTINGS.deposit_percent);
+  return Number.isFinite(n) && n > 0 && n <= 100 ? n : 20;
+}
+
+function openCheckoutModal(){
+  const cart = getCart();
+  if(!cart.length) return;
+  const subtotal = cart.reduce((s,i)=>s+i.price*i.qty,0);
+  const shipping = subtotal > 999 ? 0 : 79;
+  const total = subtotal + shipping;
+  const pct = depositPercentPreview();
+  const deposit = Math.max(1, Math.round(total * pct / 100));
+
+  document.getElementById("co-cart-total").textContent = `₹${total}`;
+  document.getElementById("co-deposit").textContent = `₹${deposit} (${pct}%)`;
+  document.getElementById("co-balance").textContent = `₹${total - deposit}`;
+
+  document.getElementById("checkout-error").style.display = "none";
+  document.getElementById("checkout-form-view").style.display = "block";
+  document.getElementById("checkout-success-view").style.display = "none";
+  document.getElementById("checkout-modal").classList.add("open");
+}
+
+function closeCheckoutModal(){
+  document.getElementById("checkout-modal").classList.remove("open");
+}
+
+function showCheckoutError(msg){
+  const el = document.getElementById("checkout-error");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+async function submitCheckout(e){
+  e.preventDefault();
+  const cart = getCart();
+  if(!cart.length) return;
+
+  const name = document.getElementById("co-name").value.trim();
+  const phone = document.getElementById("co-phone").value.trim();
+  const email = document.getElementById("co-email").value.trim();
+  const btn = document.getElementById("checkout-submit-btn");
+
+  if(typeof Razorpay === "undefined"){
+    showCheckoutError("Payment couldn't load. Check your connection and try again.");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Starting payment…";
+  document.getElementById("checkout-error").style.display = "none";
+
+  try {
+    const res = await fetch("/api/checkout/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: cart.map(i => ({ id: i.id, qty: i.qty, size: i.size, color: i.color })),
+        customerName: name, customerPhone: phone, customerEmail: email,
+      }),
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Could not start payment");
+
+    __checkoutOrder = data;
+
+    const rzp = new Razorpay({
+      key: data.key_id,
+      amount: data.amount * 100,
+      currency: data.currency,
+      name: "FLARE",
+      description: `Reservation deposit — balance ₹${data.balance_due} due later`,
+      order_id: data.razorpay_order_id,
+      prefill: { name, contact: phone, email },
+      theme: { color: "#141115" },
+      handler: function(response){
+        handleCheckoutSuccess(response);
+      },
+      modal: {
+        ondismiss: function(){
+          btn.disabled = false;
+          btn.textContent = "Pay Deposit & Reserve";
+        },
+      },
+    });
+    rzp.on("payment.failed", function(){
+      showCheckoutError("Payment failed. Please try again.");
+      btn.disabled = false;
+      btn.textContent = "Pay Deposit & Reserve";
+    });
+    rzp.open();
+  } catch(err){
+    showCheckoutError(err.message || "Something went wrong. Please try again.");
+    btn.disabled = false;
+    btn.textContent = "Pay Deposit & Reserve";
+  }
+}
+
+async function handleCheckoutSuccess(response){
+  try {
+    const res = await fetch("/api/checkout/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        booking_id: __checkoutOrder.booking_id,
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_signature: response.razorpay_signature,
+      }),
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Payment verification failed");
+
+    saveCart([]);
+    updateCartBadge();
+    document.getElementById("checkout-form-view").style.display = "none";
+    document.getElementById("checkout-success-msg").textContent =
+      `Deposit received. Balance of ₹${data.balance_due} is due later — we'll reach out on the phone number you provided.`;
+    document.getElementById("checkout-success-view").style.display = "block";
+    renderCartPage();
+  } catch(err){
+    showCheckoutError((err.message || "We couldn't confirm your payment") + " — if money was deducted, contact us and we'll sort it out.");
+    const btn = document.getElementById("checkout-submit-btn");
+    btn.disabled = false;
+    btn.textContent = "Pay Deposit & Reserve";
+  }
+}
+
 /* ---------- Newsletter ---------- */
 function handleNewsletter(e){
   e.preventDefault();

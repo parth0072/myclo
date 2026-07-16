@@ -65,8 +65,48 @@
         <button class="btn btn-outline btn-sm">Apply</button>
       </div>
       <div class="summary-row total"><span>Total</span><span id="sum-total">₹0</span></div>
-      <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="showToast('Checkout is a demo in this preview 🛍️')">Checkout</button>
+      <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="openCheckoutModal()">Reserve Now — Pay Deposit</button>
+      <p style="font-size:12px;color:var(--gray);text-align:center;margin-top:10px;">Pre-book with a small deposit today. Balance due later.</p>
       <a href="shop.html" style="display:block;text-align:center;margin-top:14px;font-size:13px;font-weight:600;color:var(--gray);">← Continue Shopping</a>
+    </div>
+  </div>
+</div>
+
+<div id="checkout-modal" class="checkout-modal">
+  <div class="checkout-modal-backdrop" onclick="closeCheckoutModal()"></div>
+  <div class="checkout-modal-panel">
+    <button class="checkout-modal-close" onclick="closeCheckoutModal()" aria-label="Close">&times;</button>
+
+    <div id="checkout-form-view">
+      <h3 style="font-size:19px;margin-bottom:4px;">Reserve Your Order</h3>
+      <p style="font-size:13px;color:var(--gray);margin-bottom:18px;">Pay a deposit now to lock in your items. We'll collect the rest later.</p>
+
+      <div class="checkout-breakdown">
+        <div class="summary-row"><span>Order total</span><span id="co-cart-total">₹0</span></div>
+        <div class="summary-row"><span>Pay now (deposit)</span><span id="co-deposit" class="co-deposit-amt">₹0</span></div>
+        <div class="summary-row"><span>Balance due later</span><span id="co-balance">₹0</span></div>
+      </div>
+
+      <form id="checkout-form" onsubmit="submitCheckout(event)">
+        <label class="checkout-label">Full Name
+          <input type="text" id="co-name" required placeholder="Your name">
+        </label>
+        <label class="checkout-label">Phone Number
+          <input type="tel" id="co-phone" required placeholder="10-digit mobile number">
+        </label>
+        <label class="checkout-label">Email (optional)
+          <input type="email" id="co-email" placeholder="you@example.com">
+        </label>
+        <div id="checkout-error" class="checkout-error" style="display:none;"></div>
+        <button type="submit" id="checkout-submit-btn" class="btn btn-primary btn-block" style="margin-top:14px;">Pay Deposit &amp; Reserve</button>
+      </form>
+    </div>
+
+    <div id="checkout-success-view" style="display:none;text-align:center;padding:10px 0;">
+      <div class="big-emoji">🎉</div>
+      <h3 style="margin:10px 0 6px;">You're Reserved!</h3>
+      <p style="color:var(--gray);font-size:14px;margin-bottom:18px;" id="checkout-success-msg"></p>
+      <button class="btn btn-primary btn-block" onclick="closeCheckoutModal(); window.location.href='index.html';">Done</button>
     </div>
   </div>
 </div>
@@ -99,6 +139,7 @@
   </a>
 </nav>
 
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="js/script.js"></script>
 </body>
 </html>
