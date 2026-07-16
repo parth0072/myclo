@@ -594,11 +594,6 @@ async function submitCheckout(e){
   const address = document.getElementById("co-address").value.trim();
   const btn = document.getElementById("checkout-submit-btn");
 
-  if(typeof Razorpay === "undefined"){
-    showCheckoutError("Payment couldn't load. Check your connection and try again.");
-    return;
-  }
-
   btn.disabled = true;
   btn.textContent = "Starting payment…";
   document.getElementById("checkout-error").style.display = "none";
@@ -616,6 +611,22 @@ async function submitCheckout(e){
     if(!res.ok) throw new Error(data.error || "Could not start payment");
 
     __checkoutOrder = data;
+
+    // TEST MODE: Razorpay isn't configured on the server yet, so it skipped
+    // the real gateway and created an already-"paid" booking directly. No
+    // Razorpay checkout to open — just show success so the order shows up
+    // in the admin panel and "My Orders" right away.
+    if(data.test_mode){
+      showCheckoutSuccessUI(data.balance_due, true);
+      return;
+    }
+
+    if(typeof Razorpay === "undefined"){
+      showCheckoutError("Payment couldn't load. Check your connection and try again.");
+      btn.disabled = false;
+      btn.textContent = "Pay Deposit & Reserve";
+      return;
+    }
 
     const rzp = new Razorpay({
       key: data.key_id,
@@ -649,6 +660,17 @@ async function submitCheckout(e){
   }
 }
 
+function showCheckoutSuccessUI(balanceDue, isTestMode){
+  saveCart([]);
+  updateCartBadge();
+  document.getElementById("checkout-form-view").style.display = "none";
+  document.getElementById("checkout-success-msg").textContent = isTestMode
+    ? `TEST MODE — no real payment was taken. Balance of ₹${balanceDue} would be due later. This order is visible in the admin panel and My Orders for testing.`
+    : `Deposit received. Balance of ₹${balanceDue} is due later — we'll reach out on the phone number you provided.`;
+  document.getElementById("checkout-success-view").style.display = "block";
+  renderCartPage();
+}
+
 async function handleCheckoutSuccess(response){
   try {
     const res = await customerFetch("/api/checkout/verify", {
@@ -664,13 +686,7 @@ async function handleCheckoutSuccess(response){
     const data = await res.json();
     if(!res.ok) throw new Error(data.error || "Payment verification failed");
 
-    saveCart([]);
-    updateCartBadge();
-    document.getElementById("checkout-form-view").style.display = "none";
-    document.getElementById("checkout-success-msg").textContent =
-      `Deposit received. Balance of ₹${data.balance_due} is due later — we'll reach out on the phone number you provided.`;
-    document.getElementById("checkout-success-view").style.display = "block";
-    renderCartPage();
+    showCheckoutSuccessUI(data.balance_due, false);
   } catch(err){
     showCheckoutError((err.message || "We couldn't confirm your payment") + " — if money was deducted, contact us and we'll sort it out.");
     const btn = document.getElementById("checkout-submit-btn");
@@ -714,6 +730,7 @@ function orderCardHTML(o){
       </div>
       <span class="order-status-badge status-${o.status}">${o.status === 'paid' ? 'Deposit Paid' : o.status === 'failed' ? 'Payment Failed' : 'Pending Payment'}</span>
     </div>
+    ${o.is_test ? `<div class="order-test-note">TEST MODE — no real payment was taken for this order.</div>` : ""}
     <div class="order-items">${itemsSummary}</div>
     ${trackingStepperHTML(o.tracking_status)}
     ${o.tracking_note ? `<div class="order-tracking-note">${o.tracking_note}</div>` : ""}

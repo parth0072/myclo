@@ -121,6 +121,11 @@ body.admin-body{background:var(--cream);}
   padding:6px 8px;border-radius:8px;border:1.5px solid var(--line);
   font-family:inherit;font-size:12px;background:#fff;color:var(--black);
 }
+.test-badge{
+  display:inline-block;padding:2px 7px;border-radius:100px;
+  font-size:10px;font-weight:800;letter-spacing:.03em;
+  background:#141115;color:#fff;vertical-align:middle;
+}
 .admin-toast{
   position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(120%);
   background:var(--black);color:#fff;padding:12px 22px;border-radius:100px;

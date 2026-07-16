@@ -342,10 +342,6 @@ function getDepositPercent() {
 }
 
 app.post("/api/checkout/create-order", requireCustomer, (req, res) => {
-  if (!razorpay) {
-    return res.status(503).json({ error: "Payments aren't configured yet. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to enable checkout." });
-  }
-
   const customer = db.prepare("SELECT * FROM customers WHERE id = ?").get(req.customerId);
   if (!customer) return res.status(401).json({ error: "Please sign in again" });
 
@@ -375,6 +371,35 @@ app.post("/api/checkout/create-order", requireCustomer, (req, res) => {
   const depositPercent = getDepositPercent();
   const depositAmount = Math.max(1, Math.round((cartTotal * depositPercent) / 100));
   const balanceDue = cartTotal - depositAmount;
+
+  // TEST MODE: no Razorpay keys configured yet, so there's no real payment
+  // gateway to talk to. Instead of blocking the whole checkout flow with a
+  // 503, simulate an instantly-"paid" booking (clearly tagged with TEST_
+  // order/payment ids) so the order flow, admin bookings view, tracking
+  // updates, and "My Orders" page can all be exercised end-to-end before
+  // real Razorpay keys are wired up. This path disappears automatically the
+  // moment RAZORPAY_KEY_ID/SECRET are set — see the real flow below.
+  if (!razorpay) {
+    const testOrderId = `TEST_ORDER_${Date.now()}`;
+    const testPaymentId = `TEST_PAYMENT_${Date.now()}`;
+    const info = db.prepare(`
+      INSERT INTO bookings (customer_id, customer_name, customer_phone, customer_email, shipping_address, items, cart_total, deposit_amount, balance_due, razorpay_order_id, razorpay_payment_id, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid')
+    `).run(
+      customer.id, String(customerName).trim(), String(customerPhone).trim(), customer.email,
+      String(shippingAddress).trim(),
+      JSON.stringify(lineItems), cartTotal, depositAmount, balanceDue, testOrderId, testPaymentId
+    );
+
+    return res.json({
+      test_mode: true,
+      booking_id: info.lastInsertRowid,
+      cart_total: cartTotal,
+      deposit_amount: depositAmount,
+      balance_due: balanceDue,
+      deposit_percent: depositPercent,
+    });
+  }
 
   razorpay.orders.create({
     amount: depositAmount * 100, // paise
@@ -460,6 +485,7 @@ function formatBooking(r) {
     tracking_note: r.tracking_note || "",
     created_at: r.created_at,
     updated_at: r.updated_at,
+    is_test: (r.razorpay_order_id || "").startsWith("TEST_"),
   };
 }
 

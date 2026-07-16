@@ -372,7 +372,9 @@ const TRACKING_LABELS = {
 let ALL_BOOKINGS = [];
 
 function renderBookingStats(bookings){
-  const paid = bookings.filter(b => b.status === "paid");
+  // Test-mode bookings (no real Razorpay payment) are excluded from revenue
+  // stats so they don't make the numbers look like real money collected.
+  const paid = bookings.filter(b => b.status === "paid" && !b.is_test);
   const deposits = paid.reduce((s,b)=>s+b.deposit_amount, 0);
   const balancePending = paid.reduce((s,b)=>s+b.balance_due, 0);
   const orderValue = paid.reduce((s,b)=>s+b.cart_total, 0);
@@ -411,7 +413,7 @@ async function loadBookings(){
         <td>₹${b.cart_total}</td>
         <td>₹${b.deposit_amount}</td>
         <td>₹${b.balance_due}</td>
-        <td><span class="booking-status ${statusClass}">${escapeHtml(b.status)}</span></td>
+        <td><span class="booking-status ${statusClass}">${escapeHtml(b.status)}</span>${b.is_test ? ' <span class="test-badge" title="Created via test mode — no real Razorpay payment">TEST</span>' : ''}</td>
         <td>
           <select class="tracking-select" onchange="updateTrackingStatus(${b.id}, this.value)">
             ${trackingOptions}

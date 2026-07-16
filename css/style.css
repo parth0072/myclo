@@ -550,6 +550,10 @@ footer{background:var(--black);color:rgba(255,255,255,.7);padding:60px 0 24px;}
 .order-status-badge.status-created{background:#fdf3d9;color:#966b13;}
 .order-items{font-size:13.5px;color:#4a4550;margin-bottom:16px;}
 .order-address{font-size:12.5px;color:var(--gray);margin-top:14px;}
+.order-test-note{
+  display:inline-block;margin-bottom:12px;padding:4px 10px;border-radius:6px;
+  background:#141115;color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.03em;
+}
 
 .order-tracker{
   display:flex;align-items:flex-start;gap:2px;margin:18px 0;overflow-x:auto;padding-bottom:4px;
