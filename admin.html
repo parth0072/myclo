@@ -204,6 +204,13 @@
   </div>
 
   <div class="tab-panel-admin" id="tab-bookings" style="display:none;">
+    <div class="stat-row">
+      <div class="stat-card"><div class="num" id="stat-order-count">0</div><div class="lbl">Total Orders</div></div>
+      <div class="stat-card"><div class="num" id="stat-deposits">₹0</div><div class="lbl">Deposits Collected</div></div>
+      <div class="stat-card"><div class="num" id="stat-balance-pending">₹0</div><div class="lbl">Balance Pending</div></div>
+      <div class="stat-card"><div class="num" id="stat-order-value">₹0</div><div class="lbl">Total Order Value</div></div>
+    </div>
+
     <div class="admin-panel">
       <div class="admin-panel-head">
         <h2>Deposit Settings</h2>
@@ -230,7 +237,7 @@
         <table class="admin-table">
           <thead>
             <tr>
-              <th>Customer</th><th>Items</th><th>Order Total</th><th>Deposit Paid</th><th>Balance Due</th><th>Status</th><th>Date</th>
+              <th>Customer</th><th>Address</th><th>Items</th><th>Order Total</th><th>Deposit Paid</th><th>Balance Due</th><th>Payment</th><th>Tracking</th><th>Date</th>
             </tr>
           </thead>
           <tbody id="bookings-tbody"></tbody>

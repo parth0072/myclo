@@ -19,23 +19,26 @@ A storefront (browse, filter, product detail, cart) plus a small admin panel, ba
 - **Admin panel** (`/admin`, or `admin.html` directly): password-gated, with three tabs:
   - **Products** — add/edit/delete products (name, category, price, MRP, sizes, colors, rating, review count, image URL, description, trending flag), plus a search box to filter the product table by name/category.
   - **Homepage Content** — edit the hero copy described above, with an instant live preview panel.
-  - **Bookings & Payments** — set the deposit percentage, and view every pre-book reservation (customer, items, order total, deposit paid, balance due, status).
+  - **Bookings & Payments** — stat cards (total orders, deposits collected, balance pending, total order value), deposit percentage setting, and a table of every reservation (customer, shipping address, items, order total, deposit paid, balance due, payment status, and an editable **tracking status** dropdown per order).
   Changes in all tabs are stored in the shared database and immediately visible to all storefront visitors.
-- **Pre-sale / pre-book checkout with Razorpay**: instead of a full checkout, the cart page's "Reserve Now" button collects the customer's name/phone/email and charges a partial **deposit** (admin-configurable percentage of the order total, default 20%) via Razorpay's hosted checkout. The balance is tracked as "due later" per reservation. See the "Payments" section below for how this actually works and what you need to do to go live with real money.
+- **Pre-sale / pre-book checkout with Razorpay**: instead of a full checkout, the cart page's "Reserve Now" button collects the customer's name/phone/shipping address and charges a partial **deposit** (admin-configurable percentage of the order total, default 20%) via Razorpay's hosted checkout. The balance is tracked as "due later" per reservation. See the "Payments" section below for how this actually works and what you need to do to go live with real money.
+- **Customer accounts (required before checkout)**: shoppers must sign in — email/password or "Sign in with Google" — before they can pay a deposit. The account modal (`openAccountModal()` in `js/script.js`) is on every storefront page via the header's Account icon. Session is a JWT kept in `localStorage` (`flareCustomerToken`), separate from the admin token.
+- **Order tracking for customers**: `orders.html` ("My Orders") lists every reservation tied to the signed-in account, with a visual step tracker (Reserved → Confirmed → Packed → Shipped → Out for Delivery → Delivered, or a red "Cancelled" badge) driven by the same `tracking_status` the admin sets.
 
 ## Architecture
 
 ```
 demoWeb/
-├── index.html, shop.html, product.html, cart.html   ← storefront pages (each has a mobile-tabbar nav)
+├── index.html, shop.html, product.html, cart.html   ← storefront pages (each has a mobile-tabbar nav + account modal)
+├── orders.html                                       ← "My Orders" customer order-tracking page
 ├── admin.html                                        ← admin panel page
 ├── manifest.json, icon.svg                           ← PWA / add-to-home-screen assets
-├── css/style.css                                     ← storefront styles
+├── css/style.css                                     ← storefront styles (incl. account modal, order tracker)
 ├── css/admin.css                                      ← admin-only styles
-├── js/script.js                                       ← storefront logic, fetches products from /api/products, cart + Razorpay checkout
-├── js/admin.js                                        ← admin panel logic, calls /api/admin/login + /api/products + /api/bookings
-├── server.js                                          ← Express server: serves the site + the API + Razorpay order/verify routes
-├── db.js                                              ← SQLite setup, schema (products, settings, bookings), seed data + image backfill
+├── js/script.js                                       ← storefront logic: products, cart, Razorpay checkout, customer auth, order tracking
+├── js/admin.js                                        ← admin panel logic: products, settings, bookings + tracking status
+├── server.js                                          ← Express server: site + API, Razorpay routes, customer auth routes
+├── db.js                                              ← SQLite setup, schema (products, settings, bookings, customers), seed data + migrations
 ├── data/flare.db                                      ← the database file (created on first run, gitignored)
 ├── .env.example                                       ← template for local env vars (copy to .env, never commit .env)
 └── package.json
@@ -59,11 +62,18 @@ Originally considered a localStorage-only admin (no server), but the requirement
 | POST | `/api/admin/login` | none | exchange admin password for a JWT (12h expiry) |
 | GET | `/api/settings` | none | homepage hero copy + `deposit_percent` as a flat key/value object |
 | PUT | `/api/settings` | admin token | update any subset of settings keys (partial updates supported) |
-| POST | `/api/checkout/create-order` | none | recomputes cart total server-side from the DB, creates a Razorpay order for the deposit amount, inserts a `bookings` row |
-| POST | `/api/checkout/verify` | none | verifies the Razorpay payment signature (HMAC-SHA256), marks the booking `paid` |
-| GET | `/api/bookings` | admin token | list all reservations (customer, items, deposit paid, balance due, status) |
+| POST | `/api/auth/register` | none | create a customer account (name, email, phone, password), returns a customer JWT |
+| POST | `/api/auth/login` | none | email + password login, returns a customer JWT |
+| POST | `/api/auth/google` | none | verifies a Google ID token server-side, creates or logs in the matching customer account |
+| GET | `/api/auth/me` | customer token | returns the signed-in customer's profile |
+| GET | `/api/config` | none | public config the frontend needs, currently just `google_client_id` (empty string if Google sign-in isn't configured) |
+| POST | `/api/checkout/create-order` | customer token | recomputes cart total server-side from the DB, creates a Razorpay order for the deposit amount, inserts a `bookings` row tied to the signed-in customer |
+| POST | `/api/checkout/verify` | customer token | verifies the Razorpay payment signature (HMAC-SHA256) and that the booking belongs to the caller, marks it `paid` |
+| GET | `/api/my-orders` | customer token | the signed-in customer's own bookings, with tracking status |
+| GET | `/api/bookings` | admin token | list all reservations (customer, address, items, deposit paid, balance due, status, tracking status) |
+| PATCH | `/api/bookings/:id/tracking` | admin token | update a booking's `tracking_status` (reserved/confirmed/packed/shipped/out_for_delivery/delivered/cancelled) and/or `tracking_note` |
 
-Admin routes require an `Authorization: Bearer <token>` header. The admin panel handles this automatically once you log in.
+Admin routes require an `Authorization: Bearer <admin-token>` header (from `/api/admin/login`); customer routes require an `Authorization: Bearer <customer-token>` header (from `/api/auth/*`) — these are two separate token types, both JWTs signed with `JWT_SECRET` but with a different `role` claim, so an admin token can't be used to call customer routes or vice versa.
 
 Settings keys: `hero_eyebrow`, `hero_title_1`, `hero_title_2`, `hero_subtitle`, `hero_cta_primary`, `hero_cta_secondary`, `hero_badge`, `deposit_percent`. The hero's price tag isn't a stored setting — it's computed on the frontend from whichever products have `trending: true`.
 
@@ -83,6 +93,20 @@ This is real-money functionality on a live production site — treat it with car
 Until `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are set, `/api/checkout/create-order` returns a 503 with a clear "payments aren't configured yet" message instead of crashing — the rest of the site works normally.
 
 **Not legal/compliance advice, but worth flagging:** collecting deposits for pre-orders may carry consumer-protection obligations depending on your jurisdiction (clear refund policy, expected delivery/fulfillment timeline, what happens if an item goes out of stock after a deposit is paid). Worth a quick check before taking real payments at scale.
+
+## Customer accounts & Google Sign-In
+
+Checkout is gated behind a customer account — shoppers must register or sign in before they can pay a deposit.
+
+**How it works:** Email/password accounts hash the password with Node's built-in `scrypt` (salted, no extra dependency). Google Sign-In uses [Google Identity Services](https://developers.google.com/identity/gsi/web) on the frontend (`accounts.google.com/gsi/client`, loaded on every storefront page) — clicking the Google button gets an ID token from Google directly in the browser, which the frontend then POSTs to `/api/auth/google`. The server verifies that token server-side with `google-auth-library` before trusting it, so a forged token can't create a fake login. Both flows issue the same kind of JWT (30-day expiry, kept in `localStorage` as `flareCustomerToken`), and both a `customers` row and a JWT are enough to place an order — no email verification step exists yet.
+
+**What you need to do yourself (I can't create this for you):**
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials → Create Credentials → OAuth client ID → type "Web application".
+2. Add your site's origins under "Authorized JavaScript origins" — e.g. `http://localhost:3000` for local dev and your Render URL (`https://flare-site.onrender.com`) for production. No redirect URI is needed for this flow.
+3. Copy the generated **Client ID** (looks like `xxxx.apps.googleusercontent.com`) and set it as `GOOGLE_CLIENT_ID` — locally in `.env`, and on Render via the dashboard (declared as `sync: false` in `render.yaml`). No client secret is needed.
+4. Until `GOOGLE_CLIENT_ID` is set, the Google button just doesn't render (`/api/config` returns an empty `google_client_id`, and `initGoogleSignIn()` in `js/script.js` hides the button) — email/password sign-in keeps working regardless.
+
+**Tracking:** admin manually moves each order through stages (Reserved → Confirmed → Packed → Shipped → Out for Delivery → Delivered, or Cancelled) from the Bookings & Payments tab — there's no live courier/carrier integration (e.g. Shiprocket/Delhivery) wired up. If that's wanted later, it would replace or extend the `PATCH /api/bookings/:id/tracking` endpoint with real carrier webhooks.
 
 ## Running it locally
 
@@ -120,4 +144,8 @@ This is a small persistent Node server with a SQLite file on disk — it needs a
 - Product images: `db.js` seeds each of the 9 products with a real Unsplash photo URL in the `image` column, plus a startup "backfill" query that fills in `image` for any row matching a seed product name whose image is still blank (safe to leave in — it never overwrites an image an admin has set). Frontend rendering goes through `productImage(p, w, h)` in `js/script.js`, which prefers `p.image` and falls back to the picsum placeholder — any new image logic should go through that helper, not call `demoImg()` directly.
 - `icon.svg` is a plain SVG (not a raster PNG) used for the favicon, apple-touch-icon, and manifest icon — this was a deliberate tool constraint (no way to write binary PNG bytes in this environment), and works in effectively all modern browsers/iOS versions for home-screen install. If pixel-perfect PNG icons matter later, generate proper 192x192/512x512 PNGs and swap the `<link>`/manifest references.
 - **Payments**: `server.js` only initializes the Razorpay SDK if both `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are set in the environment — see the "Payments" section above for what the user needs to do to get real keys. `/api/checkout/create-order` is the only place order totals are computed; it always re-reads prices from the `products` table rather than trusting the client, so don't "optimize" that by accepting a client-sent total. Signature verification in `/api/checkout/verify` uses `crypto.timingSafeEqual` — don't swap that for a plain `===` string compare, timing attacks are a real (if narrow) risk on signature checks. The `bookings` table records every reservation attempt; a booking only flips to `status: 'paid'` after signature verification succeeds, so `created`-status rows are abandoned/incomplete checkouts, not paid orders.
-- Local dev now loads a `.env` file via `dotenv` (see `.env.example`) — Render doesn't need this since it injects env vars directly into the process, but it makes `RAZORPAY_KEY_ID`/`SECRET`/`ADMIN_PASSWORD`/`JWT_SECRET` easy to set locally without exporting shell vars every session.
+- Local dev now loads a `.env` file via `dotenv` (see `.env.example`) — Render doesn't need this since it injects env vars directly into the process, but it makes `RAZORPAY_KEY_ID`/`SECRET`/`ADMIN_PASSWORD`/`JWT_SECRET`/`GOOGLE_CLIENT_ID` easy to set locally without exporting shell vars every session.
+- **Customer accounts**: there are now two independent JWT "roles" — `role: "admin"` (from `/api/admin/login`) and `role: "customer"` (from `/api/auth/*`), both signed with the same `JWT_SECRET` but checked separately by `requireAdmin` vs `requireCustomer` in `server.js`. Don't merge these or let one token type satisfy the other's middleware. Customer session state lives in `localStorage` under `flareCustomerToken` + `flareCustomer` (see `getCustomer()`/`setCustomerSession()` in `js/script.js`) — separate keys from the admin panel's `flareAdminToken`.
+- The account login/register modal markup is duplicated across `index.html`, `shop.html`, `product.html`, `cart.html`, and `orders.html` (same pattern as the mobile-tabbar) — if you add a new storefront page, copy the `#account-modal` block and the two `<script>` tags (`accounts.google.com/gsi/client` + `js/script.js`) from any existing page rather than reinventing it.
+- **Tracking status** lives on the `bookings` row (`tracking_status`, default `'reserved'`) and is a fixed enum (`TRACKING_STATUSES` in `server.js` — keep the admin dropdown in `admin.html`/`js/admin.js` and the customer stepper in `js/script.js`'s `TRACKING_STAGES` in sync if this list ever changes). Admin updates it via `PATCH /api/bookings/:id/tracking`; customers only ever read it via `GET /api/my-orders`, scoped to their own `customer_id` — never trust a client-supplied customer id anywhere, always derive it from the verified JWT (`req.customerId`).
+- `db.js` migrates the `bookings` table for pre-existing databases (`customer_id`, `shipping_address`, `tracking_status`, `tracking_note`, `updated_at` via `PRAGMA table_info` + conditional `ALTER TABLE`) since SQLite has no "ADD COLUMN IF NOT EXISTS". If you add more columns later, follow the same `bookingMigrations` array pattern instead of assuming a fresh table.

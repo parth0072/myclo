@@ -39,9 +39,11 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS bookings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER,
     customer_name TEXT NOT NULL,
     customer_phone TEXT NOT NULL,
     customer_email TEXT NOT NULL DEFAULT '',
+    shipping_address TEXT NOT NULL DEFAULT '',
     items TEXT NOT NULL DEFAULT '[]',
     cart_total INTEGER NOT NULL,
     deposit_amount INTEGER NOT NULL,
@@ -49,9 +51,40 @@ db.exec(`
     razorpay_order_id TEXT NOT NULL DEFAULT '',
     razorpay_payment_id TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'created',
+    tracking_status TEXT NOT NULL DEFAULT 'reserved',
+    tracking_note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    phone TEXT NOT NULL DEFAULT '',
+    password_hash TEXT NOT NULL DEFAULT '',
+    google_id TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 `);
+
+/* ---------- Migrate bookings table for databases created before accounts/
+   tracking existed (customer_id, shipping_address, tracking_status,
+   tracking_note, updated_at). SQLite has no "ADD COLUMN IF NOT EXISTS", so
+   we check PRAGMA table_info first and only add what's missing. Safe to run
+   on every startup. ---------- */
+
+const bookingColumns = new Set(db.prepare("PRAGMA table_info(bookings)").all().map((c) => c.name));
+const bookingMigrations = [
+  ["customer_id", "ALTER TABLE bookings ADD COLUMN customer_id INTEGER"],
+  ["shipping_address", "ALTER TABLE bookings ADD COLUMN shipping_address TEXT NOT NULL DEFAULT ''"],
+  ["tracking_status", "ALTER TABLE bookings ADD COLUMN tracking_status TEXT NOT NULL DEFAULT 'reserved'"],
+  ["tracking_note", "ALTER TABLE bookings ADD COLUMN tracking_note TEXT NOT NULL DEFAULT ''"],
+  ["updated_at", "ALTER TABLE bookings ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"],
+];
+for (const [col, sql] of bookingMigrations) {
+  if (!bookingColumns.has(col)) db.exec(sql);
+}
 
 /* ---------- Seed products (only runs once, on an empty table) ---------- */
 

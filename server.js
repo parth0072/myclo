@@ -30,6 +30,17 @@ if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
   razorpay = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
 }
 
+// Google Sign-In is optional to configure — same pattern as Razorpay. Get a
+// Client ID from Google Cloud Console > APIs & Services > Credentials
+// (OAuth client ID, type "Web application"). No client secret is needed for
+// this ID-token verification flow.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+let googleClient = null;
+if (GOOGLE_CLIENT_ID) {
+  const { OAuth2Client } = require("google-auth-library");
+  googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+}
+
 app.use(cors());
 app.use(express.json());
 
@@ -70,6 +81,122 @@ function requireAdmin(req, res, next) {
     res.status(401).json({ error: "Invalid or expired session, please log in again" });
   }
 }
+
+/* ---------------- Customer accounts (email/password + Google) ----------------
+   Customers must be signed in to place a pre-book order. Passwords are hashed
+   with Node's built-in scrypt (salted) — no extra dependency needed. Google
+   Sign-In verifies the ID token server-side via google-auth-library, so we
+   never see or need the customer's Google password. */
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  const [salt, hash] = String(stored || "").split(":");
+  if (!salt || !hash) return false;
+  const attempt = crypto.scryptSync(password, salt, 64).toString("hex");
+  const a = Buffer.from(attempt, "hex");
+  const b = Buffer.from(hash, "hex");
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function formatCustomer(row) {
+  return { id: row.id, name: row.name, email: row.email, phone: row.phone };
+}
+
+function requireCustomer(req, res, next) {
+  const auth = req.headers.authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token) return res.status(401).json({ error: "Please sign in to continue" });
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    if (payload.role !== "customer") throw new Error("wrong role");
+    req.customerId = payload.customerId;
+    next();
+  } catch (e) {
+    res.status(401).json({ error: "Your session expired, please sign in again" });
+  }
+}
+
+app.post("/api/auth/register", (req, res) => {
+  const { name, email, phone, password } = req.body || {};
+  if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) return res.status(400).json({ error: "A valid email is required" });
+  if (!password || String(password).length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+
+  const emailNorm = String(email).trim().toLowerCase();
+  const existing = db.prepare("SELECT id FROM customers WHERE email = ?").get(emailNorm);
+  if (existing) return res.status(409).json({ error: "An account with this email already exists. Try logging in instead." });
+
+  const info = db.prepare(`
+    INSERT INTO customers (name, email, phone, password_hash) VALUES (?, ?, ?, ?)
+  `).run(String(name).trim(), emailNorm, phone ? String(phone).trim() : "", hashPassword(String(password)));
+
+  const customer = db.prepare("SELECT * FROM customers WHERE id = ?").get(info.lastInsertRowid);
+  const token = jwt.sign({ customerId: customer.id, role: "customer" }, JWT_SECRET, { expiresIn: "30d" });
+  res.status(201).json({ token, customer: formatCustomer(customer) });
+});
+
+app.post("/api/auth/login", (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+
+  const customer = db.prepare("SELECT * FROM customers WHERE email = ?").get(String(email).trim().toLowerCase());
+  if (!customer || !customer.password_hash || !verifyPassword(String(password), customer.password_hash)) {
+    return res.status(401).json({ error: "Incorrect email or password" });
+  }
+
+  const token = jwt.sign({ customerId: customer.id, role: "customer" }, JWT_SECRET, { expiresIn: "30d" });
+  res.json({ token, customer: formatCustomer(customer) });
+});
+
+app.post("/api/auth/google", async (req, res) => {
+  if (!googleClient) return res.status(503).json({ error: "Google sign-in isn't configured yet" });
+
+  const { credential } = req.body || {};
+  if (!credential) return res.status(400).json({ error: "Missing Google credential" });
+
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+    const payload = ticket.getPayload();
+    const googleId = payload.sub;
+    const email = String(payload.email || "").toLowerCase();
+    const name = payload.name || email.split("@")[0];
+    if (!email) return res.status(400).json({ error: "Google account has no email" });
+
+    let customer = db.prepare("SELECT * FROM customers WHERE google_id = ? OR email = ?").get(googleId, email);
+    if (!customer) {
+      const info = db.prepare(`
+        INSERT INTO customers (name, email, phone, password_hash, google_id) VALUES (?, ?, '', '', ?)
+      `).run(name, email, googleId);
+      customer = db.prepare("SELECT * FROM customers WHERE id = ?").get(info.lastInsertRowid);
+    } else if (!customer.google_id) {
+      db.prepare("UPDATE customers SET google_id = ? WHERE id = ?").run(googleId, customer.id);
+      customer.google_id = googleId;
+    }
+
+    const token = jwt.sign({ customerId: customer.id, role: "customer" }, JWT_SECRET, { expiresIn: "30d" });
+    res.json({ token, customer: formatCustomer(customer) });
+  } catch (err) {
+    console.error("Google sign-in failed:", err);
+    res.status(401).json({ error: "Could not verify Google sign-in" });
+  }
+});
+
+app.get("/api/auth/me", requireCustomer, (req, res) => {
+  const customer = db.prepare("SELECT * FROM customers WHERE id = ?").get(req.customerId);
+  if (!customer) return res.status(404).json({ error: "Account not found" });
+  res.json({ customer: formatCustomer(customer) });
+});
+
+// Public, non-secret config the frontend needs (e.g. to decide whether to
+// render the Google sign-in button and which client ID to use).
+app.get("/api/config", (req, res) => {
+  res.json({ google_client_id: GOOGLE_CLIENT_ID || "" });
+});
 
 /* ---------------- Helpers ---------------- */
 
@@ -214,15 +341,19 @@ function getDepositPercent() {
   return n;
 }
 
-app.post("/api/checkout/create-order", (req, res) => {
+app.post("/api/checkout/create-order", requireCustomer, (req, res) => {
   if (!razorpay) {
     return res.status(503).json({ error: "Payments aren't configured yet. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to enable checkout." });
   }
 
-  const { items, customerName, customerPhone, customerEmail } = req.body || {};
+  const customer = db.prepare("SELECT * FROM customers WHERE id = ?").get(req.customerId);
+  if (!customer) return res.status(401).json({ error: "Please sign in again" });
+
+  const { items, customerName, customerPhone, shippingAddress } = req.body || {};
 
   if (!customerName || !String(customerName).trim()) return res.status(400).json({ error: "Name is required" });
   if (!customerPhone || !String(customerPhone).trim()) return res.status(400).json({ error: "Phone number is required" });
+  if (!shippingAddress || !String(shippingAddress).trim()) return res.status(400).json({ error: "Shipping address is required" });
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: "Your bag is empty" });
 
   // Recompute the order total from the DB — client-sent prices are ignored.
@@ -251,10 +382,11 @@ app.post("/api/checkout/create-order", (req, res) => {
     receipt: `flare_${Date.now()}`,
   }).then((order) => {
     const info = db.prepare(`
-      INSERT INTO bookings (customer_name, customer_phone, customer_email, items, cart_total, deposit_amount, balance_due, razorpay_order_id, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'created')
+      INSERT INTO bookings (customer_id, customer_name, customer_phone, customer_email, shipping_address, items, cart_total, deposit_amount, balance_due, razorpay_order_id, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'created')
     `).run(
-      String(customerName).trim(), String(customerPhone).trim(), customerEmail ? String(customerEmail).trim() : "",
+      customer.id, String(customerName).trim(), String(customerPhone).trim(), customer.email,
+      String(shippingAddress).trim(),
       JSON.stringify(lineItems), cartTotal, depositAmount, balanceDue, order.id
     );
 
@@ -275,7 +407,7 @@ app.post("/api/checkout/create-order", (req, res) => {
   });
 });
 
-app.post("/api/checkout/verify", (req, res) => {
+app.post("/api/checkout/verify", requireCustomer, (req, res) => {
   if (!razorpay) return res.status(503).json({ error: "Payments aren't configured yet" });
 
   const { booking_id, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
@@ -285,6 +417,9 @@ app.post("/api/checkout/verify", (req, res) => {
 
   const booking = db.prepare("SELECT * FROM bookings WHERE id = ?").get(booking_id);
   if (!booking) return res.status(404).json({ error: "Booking not found" });
+  if (booking.customer_id !== req.customerId) {
+    return res.status(403).json({ error: "This booking doesn't belong to your account" });
+  }
   if (booking.razorpay_order_id !== razorpay_order_id) {
     return res.status(400).json({ error: "Order mismatch" });
   }
@@ -307,20 +442,57 @@ app.post("/api/checkout/verify", (req, res) => {
   res.json({ ok: true, balance_due: booking.balance_due, cart_total: booking.cart_total, deposit_amount: booking.deposit_amount });
 });
 
-app.get("/api/bookings", requireAdmin, (req, res) => {
-  const rows = db.prepare("SELECT * FROM bookings ORDER BY id DESC").all();
-  res.json(rows.map((r) => ({
+const TRACKING_STATUSES = ["reserved", "confirmed", "packed", "shipped", "out_for_delivery", "delivered", "cancelled"];
+
+function formatBooking(r) {
+  return {
     id: r.id,
     customer_name: r.customer_name,
     customer_phone: r.customer_phone,
     customer_email: r.customer_email,
+    shipping_address: r.shipping_address || "",
     items: JSON.parse(r.items || "[]"),
     cart_total: r.cart_total,
     deposit_amount: r.deposit_amount,
     balance_due: r.balance_due,
     status: r.status,
+    tracking_status: r.tracking_status || "reserved",
+    tracking_note: r.tracking_note || "",
     created_at: r.created_at,
-  })));
+    updated_at: r.updated_at,
+  };
+}
+
+app.get("/api/bookings", requireAdmin, (req, res) => {
+  const rows = db.prepare("SELECT * FROM bookings ORDER BY id DESC").all();
+  res.json(rows.map(formatBooking));
+});
+
+app.patch("/api/bookings/:id/tracking", requireAdmin, (req, res) => {
+  const booking = db.prepare("SELECT * FROM bookings WHERE id = ?").get(req.params.id);
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+  const { tracking_status, tracking_note } = req.body || {};
+  if (tracking_status && !TRACKING_STATUSES.includes(tracking_status)) {
+    return res.status(400).json({ error: `tracking_status must be one of: ${TRACKING_STATUSES.join(", ")}` });
+  }
+
+  db.prepare(`
+    UPDATE bookings SET
+      tracking_status = COALESCE(?, tracking_status),
+      tracking_note = COALESCE(?, tracking_note),
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run(tracking_status || null, tracking_note != null ? String(tracking_note).trim() : null, req.params.id);
+
+  const updated = db.prepare("SELECT * FROM bookings WHERE id = ?").get(req.params.id);
+  res.json(formatBooking(updated));
+});
+
+// Customer-facing order history + tracking, scoped to their own account only.
+app.get("/api/my-orders", requireCustomer, (req, res) => {
+  const rows = db.prepare("SELECT * FROM bookings WHERE customer_id = ? ORDER BY id DESC").all(req.customerId);
+  res.json(rows.map(formatBooking));
 });
 
 app.listen(PORT, () => {

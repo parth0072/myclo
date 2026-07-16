@@ -363,15 +363,36 @@ async function submitDepositForm(e){
   }
 }
 
+const TRACKING_STATUSES = ["reserved", "confirmed", "packed", "shipped", "out_for_delivery", "delivered", "cancelled"];
+const TRACKING_LABELS = {
+  reserved: "Reserved", confirmed: "Confirmed", packed: "Packed",
+  shipped: "Shipped", out_for_delivery: "Out for Delivery",
+  delivered: "Delivered", cancelled: "Cancelled",
+};
+let ALL_BOOKINGS = [];
+
+function renderBookingStats(bookings){
+  const paid = bookings.filter(b => b.status === "paid");
+  const deposits = paid.reduce((s,b)=>s+b.deposit_amount, 0);
+  const balancePending = paid.reduce((s,b)=>s+b.balance_due, 0);
+  const orderValue = paid.reduce((s,b)=>s+b.cart_total, 0);
+  document.getElementById("stat-order-count").textContent = paid.length;
+  document.getElementById("stat-deposits").textContent = `₹${deposits}`;
+  document.getElementById("stat-balance-pending").textContent = `₹${balancePending}`;
+  document.getElementById("stat-order-value").textContent = `₹${orderValue}`;
+}
+
 async function loadBookings(){
   const tbody = document.getElementById("bookings-tbody");
   try{
     const res = await authedFetch("/api/bookings");
     const bookings = await res.json();
+    ALL_BOOKINGS = bookings;
     document.getElementById("bookings-count").textContent = `${bookings.length} reservation${bookings.length===1?"":"s"}`;
+    renderBookingStats(bookings);
 
     if(!bookings.length){
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No reservations yet. They'll show up here as customers pay their deposit at checkout.</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="9">No reservations yet. They'll show up here as customers pay their deposit at checkout.</td></tr>`;
       return;
     }
 
@@ -379,20 +400,59 @@ async function loadBookings(){
       const itemsSummary = (b.items||[]).map(i=>`${i.name} ×${i.qty}`).join(", ");
       const statusClass = b.status === "paid" ? "status-paid" : b.status === "failed" ? "status-failed" : "status-pending";
       const date = new Date(b.created_at).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" });
+      const trackingOptions = TRACKING_STATUSES.map(s =>
+        `<option value="${s}" ${b.tracking_status===s?"selected":""}>${TRACKING_LABELS[s]}</option>`
+      ).join("");
       return `
       <tr>
         <td>${escapeHtml(b.customer_name)}<br><span style="color:var(--gray);font-size:12px;">${escapeHtml(b.customer_phone)}</span></td>
+        <td style="max-width:180px;white-space:normal;font-size:12px;color:var(--gray);">${escapeHtml(b.shipping_address || "—")}</td>
         <td>${escapeHtml(itemsSummary)}</td>
         <td>₹${b.cart_total}</td>
         <td>₹${b.deposit_amount}</td>
         <td>₹${b.balance_due}</td>
         <td><span class="booking-status ${statusClass}">${escapeHtml(b.status)}</span></td>
+        <td>
+          <select class="tracking-select" onchange="updateTrackingStatus(${b.id}, this.value)">
+            ${trackingOptions}
+          </select>
+        </td>
         <td>${date}</td>
       </tr>`;
     }).join("");
   }catch(e){
-    if(tbody) tbody.innerHTML = `<tr class="empty-row"><td colspan="7">Couldn't load reservations.</td></tr>`;
+    if(tbody) tbody.innerHTML = `<tr class="empty-row"><td colspan="9">Couldn't load reservations.</td></tr>`;
   }
+}
+
+async function updateTrackingStatus(bookingId, trackingStatus){
+  try{
+    const res = await authedFetch(`/api/bookings/${bookingId}/tracking`, {
+      method: "PATCH",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ tracking_status: trackingStatus })
+    });
+    const data = await res.json();
+    if(!res.ok){
+      alert(data.error || "Couldn't update tracking status.");
+      await loadBookings();
+      return;
+    }
+    showAdminToast(`Order #${bookingId} marked "${TRACKING_LABELS[trackingStatus]}"`);
+  }catch(e){ /* handled by authedFetch on 401 */ }
+}
+
+function showAdminToast(msg){
+  let toast = document.querySelector(".admin-toast");
+  if(!toast){
+    toast = document.createElement("div");
+    toast.className = "admin-toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(window.__adminToastTimer);
+  window.__adminToastTimer = setTimeout(()=>toast.classList.remove("show"), 2200);
 }
 
 /* ---------- Tabs ---------- */

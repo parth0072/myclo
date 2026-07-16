@@ -38,7 +38,7 @@
       <button class="icon-btn" aria-label="Search">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
-      <button class="icon-btn" aria-label="Account">
+      <button class="icon-btn" aria-label="Account" onclick="openAccountModal()">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       </button>
       <a href="cart.html" class="icon-btn active" aria-label="Cart">
@@ -94,19 +94,27 @@
         <label class="checkout-label">Phone Number
           <input type="tel" id="co-phone" required placeholder="10-digit mobile number">
         </label>
-        <label class="checkout-label">Email (optional)
-          <input type="email" id="co-email" placeholder="you@example.com">
+        <label class="checkout-label">Shipping Address
+          <textarea id="co-address" required placeholder="House/flat no., street, area, city, state, PIN code" rows="3" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1.5px solid #e4e0e2;border-radius:9px;font-size:14px;font-family:inherit;color:var(--black);resize:vertical;"></textarea>
         </label>
         <div id="checkout-error" class="checkout-error" style="display:none;"></div>
         <button type="submit" id="checkout-submit-btn" class="btn btn-primary btn-block" style="margin-top:14px;">Pay Deposit &amp; Reserve</button>
       </form>
     </div>
 
+    <div id="checkout-login-required-view" style="display:none;text-align:center;padding:10px 0;">
+      <div class="big-emoji">🔒</div>
+      <h3 style="margin:10px 0 6px;">Sign In to Reserve</h3>
+      <p style="color:var(--gray);font-size:13.5px;margin-bottom:20px;">Create a free account or sign in so we can keep you updated on your order and its delivery status.</p>
+      <button class="btn btn-primary btn-block" onclick="closeCheckoutModal(); openAccountModal();">Sign In / Create Account</button>
+    </div>
+
     <div id="checkout-success-view" style="display:none;text-align:center;padding:10px 0;">
       <div class="big-emoji">🎉</div>
       <h3 style="margin:10px 0 6px;">You're Reserved!</h3>
       <p style="color:var(--gray);font-size:14px;margin-bottom:18px;" id="checkout-success-msg"></p>
-      <button class="btn btn-primary btn-block" onclick="closeCheckoutModal(); window.location.href='index.html';">Done</button>
+      <a href="orders.html" class="btn btn-outline btn-block" style="margin-bottom:10px;">Track My Order</a>
+      <button class="btn btn-primary btn-block" onclick="closeCheckoutModal(); window.location.href='index.html';">Continue Shopping</button>
     </div>
   </div>
 </div>
@@ -139,6 +147,65 @@
   </a>
 </nav>
 
+<div id="account-modal" class="checkout-modal">
+  <div class="checkout-modal-backdrop" onclick="closeAccountModal()"></div>
+  <div class="checkout-modal-panel">
+    <button class="checkout-modal-close" onclick="closeAccountModal()" aria-label="Close">&times;</button>
+
+    <div id="account-guest-view">
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" data-auth-tab="login" onclick="switchAuthTab('login')">Sign In</button>
+        <button type="button" class="auth-tab" data-auth-tab="register" onclick="switchAuthTab('register')">Create Account</button>
+      </div>
+
+      <div id="google-signin-wrap" style="display:none;">
+        <div id="google-signin-btn"></div>
+        <div class="auth-divider"><span>or</span></div>
+      </div>
+
+      <form id="login-form" class="auth-form" onsubmit="submitLogin(event)">
+        <div class="checkout-error" id="login-error" style="display:none;"></div>
+        <label class="checkout-label">Email
+          <input type="email" id="login-email" required>
+        </label>
+        <label class="checkout-label">Password
+          <input type="password" id="login-password-field" required minlength="6">
+        </label>
+        <button type="submit" class="btn btn-primary btn-block" id="login-submit-btn">Sign In</button>
+      </form>
+
+      <form id="register-form" class="auth-form" style="display:none;" onsubmit="submitRegister(event)">
+        <div class="checkout-error" id="register-error" style="display:none;"></div>
+        <label class="checkout-label">Full Name
+          <input type="text" id="register-name" required>
+        </label>
+        <label class="checkout-label">Email
+          <input type="email" id="register-email" required>
+        </label>
+        <label class="checkout-label">Phone <span style="text-transform:none;font-weight:400;">(optional)</span>
+          <input type="tel" id="register-phone">
+        </label>
+        <label class="checkout-label">Password
+          <input type="password" id="register-password" required minlength="6">
+        </label>
+        <button type="submit" class="btn btn-primary btn-block" id="register-submit-btn">Create Account</button>
+      </form>
+
+      <p style="font-size:11.5px;color:var(--gray);text-align:center;margin-top:14px;">An account is required to place a pre-book order.</p>
+    </div>
+
+    <div id="account-logged-in-view" style="display:none;text-align:center;padding:10px 0;">
+      <div class="big-emoji">👋</div>
+      <h3 style="margin:10px 0 4px;" id="account-greeting">Hi there!</h3>
+      <p style="color:var(--gray);font-size:13.5px;margin-bottom:22px;" id="account-email-display"></p>
+      <a href="orders.html" class="btn btn-outline btn-block" style="margin-bottom:10px;">My Orders</a>
+      <button class="btn btn-primary btn-block" onclick="closeAccountModal()">Continue Shopping</button>
+      <div class="account-logout" onclick="logoutCustomer()">Log Out</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="js/script.js"></script>
 </body>

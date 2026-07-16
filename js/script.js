@@ -4,6 +4,7 @@
 
 let PRODUCTS = [];
 let SETTINGS = {};
+let APP_CONFIG = {};
 
 async function loadProducts() {
   try {
@@ -24,6 +25,181 @@ async function loadSettings() {
   } catch (e) {
     console.error("Could not load homepage settings from the server.", e);
     SETTINGS = {};
+  }
+}
+
+async function loadAppConfig() {
+  try {
+    const res = await fetch("/api/config");
+    APP_CONFIG = await res.json();
+  } catch (e) {
+    APP_CONFIG = {};
+  }
+}
+
+/* ---------- Customer accounts (email/password + Google) ----------
+   A signed-in account is required before placing a pre-book order. Session
+   is a JWT kept in localStorage, same pattern as the admin panel's token. */
+const CUSTOMER_TOKEN_KEY = "flareCustomerToken";
+const CUSTOMER_KEY = "flareCustomer";
+
+function getCustomerToken(){ return localStorage.getItem(CUSTOMER_TOKEN_KEY); }
+function getCustomer(){
+  try{ return JSON.parse(localStorage.getItem(CUSTOMER_KEY)); }
+  catch(e){ return null; }
+}
+function setCustomerSession(token, customer){
+  localStorage.setItem(CUSTOMER_TOKEN_KEY, token);
+  localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customer));
+  updateAccountUI();
+}
+function clearCustomerSession(){
+  localStorage.removeItem(CUSTOMER_TOKEN_KEY);
+  localStorage.removeItem(CUSTOMER_KEY);
+  updateAccountUI();
+}
+function logoutCustomer(){
+  clearCustomerSession();
+  closeAccountModal();
+  showToast("Signed out");
+}
+
+async function customerFetch(url, options={}){
+  const token = getCustomerToken();
+  const res = await fetch(url, {
+    ...options,
+    headers: { ...(options.headers||{}), "Authorization": `Bearer ${token}` },
+  });
+  if(res.status === 401){
+    clearCustomerSession();
+  }
+  return res;
+}
+
+function updateAccountUI(){
+  const customer = getCustomer();
+  document.querySelectorAll('.icon-btn[aria-label="Account"]').forEach(btn=>{
+    btn.classList.toggle("account-active", !!customer);
+  });
+}
+
+function openAccountModal(){
+  const modal = document.getElementById("account-modal");
+  if(!modal) return;
+  const customer = getCustomer();
+  const guestView = document.getElementById("account-guest-view");
+  const loggedView = document.getElementById("account-logged-in-view");
+  if(customer){
+    guestView.style.display = "none";
+    loggedView.style.display = "block";
+    document.getElementById("account-greeting").textContent = `Hi, ${customer.name}!`;
+    document.getElementById("account-email-display").textContent = customer.email;
+  } else {
+    guestView.style.display = "block";
+    loggedView.style.display = "none";
+    switchAuthTab("login");
+    initGoogleSignIn();
+  }
+  modal.classList.add("open");
+}
+
+function closeAccountModal(){
+  const modal = document.getElementById("account-modal");
+  if(modal) modal.classList.remove("open");
+}
+
+function switchAuthTab(tab){
+  document.querySelectorAll(".auth-tab").forEach(t=>t.classList.toggle("active", t.dataset.authTab===tab));
+  const loginForm = document.getElementById("login-form");
+  const registerForm = document.getElementById("register-form");
+  if(loginForm) loginForm.style.display = tab==="login" ? "block" : "none";
+  if(registerForm) registerForm.style.display = tab==="register" ? "block" : "none";
+}
+
+async function submitLogin(e){
+  e.preventDefault();
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password-field").value;
+  const errBox = document.getElementById("login-error");
+  errBox.style.display = "none";
+  const btn = document.getElementById("login-submit-btn");
+  btn.disabled = true;
+  try{
+    const res = await fetch("/api/auth/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Could not sign in");
+    setCustomerSession(data.token, data.customer);
+    openAccountModal();
+    showToast(`Welcome back, ${data.customer.name}!`);
+  }catch(err){
+    errBox.textContent = err.message;
+    errBox.style.display = "block";
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function submitRegister(e){
+  e.preventDefault();
+  const name = document.getElementById("register-name").value.trim();
+  const email = document.getElementById("register-email").value.trim();
+  const phone = document.getElementById("register-phone").value.trim();
+  const password = document.getElementById("register-password").value;
+  const errBox = document.getElementById("register-error");
+  errBox.style.display = "none";
+  const btn = document.getElementById("register-submit-btn");
+  btn.disabled = true;
+  try{
+    const res = await fetch("/api/auth/register", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, phone, password }),
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Could not create account");
+    setCustomerSession(data.token, data.customer);
+    openAccountModal();
+    showToast(`Welcome to FLARE, ${data.customer.name}!`);
+  }catch(err){
+    errBox.textContent = err.message;
+    errBox.style.display = "block";
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function initGoogleSignIn(){
+  const wrap = document.getElementById("google-signin-wrap");
+  if(!wrap) return;
+  if(!APP_CONFIG.google_client_id || typeof google === "undefined" || !google.accounts){
+    wrap.style.display = "none";
+    return;
+  }
+  wrap.style.display = "block";
+  google.accounts.id.initialize({
+    client_id: APP_CONFIG.google_client_id,
+    callback: handleGoogleCredential,
+  });
+  const btnHost = document.getElementById("google-signin-btn");
+  btnHost.innerHTML = "";
+  google.accounts.id.renderButton(btnHost, { theme: "outline", size: "large", width: 280 });
+}
+
+async function handleGoogleCredential(response){
+  try{
+    const res = await fetch("/api/auth/google", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: response.credential }),
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Google sign-in failed");
+    setCustomerSession(data.token, data.customer);
+    openAccountModal();
+    showToast(`Welcome, ${data.customer.name}!`);
+  }catch(err){
+    showToast(err.message || "Google sign-in failed");
   }
 }
 
@@ -358,6 +534,26 @@ function depositPercentPreview(){
 function openCheckoutModal(){
   const cart = getCart();
   if(!cart.length) return;
+
+  const loginRequiredView = document.getElementById("checkout-login-required-view");
+  const formView = document.getElementById("checkout-form-view");
+  const successView = document.getElementById("checkout-success-view");
+  successView.style.display = "none";
+
+  const customer = getCustomer();
+  if(!customer){
+    formView.style.display = "none";
+    loginRequiredView.style.display = "block";
+    document.getElementById("checkout-modal").classList.add("open");
+    return;
+  }
+  loginRequiredView.style.display = "none";
+  formView.style.display = "block";
+
+  // Prefill from the signed-in account so returning customers don't retype it.
+  document.getElementById("co-name").value = customer.name || "";
+  document.getElementById("co-phone").value = customer.phone || "";
+
   const subtotal = cart.reduce((s,i)=>s+i.price*i.qty,0);
   const shipping = subtotal > 999 ? 0 : 79;
   const total = subtotal + shipping;
@@ -369,8 +565,6 @@ function openCheckoutModal(){
   document.getElementById("co-balance").textContent = `₹${total - deposit}`;
 
   document.getElementById("checkout-error").style.display = "none";
-  document.getElementById("checkout-form-view").style.display = "block";
-  document.getElementById("checkout-success-view").style.display = "none";
   document.getElementById("checkout-modal").classList.add("open");
 }
 
@@ -389,9 +583,15 @@ async function submitCheckout(e){
   const cart = getCart();
   if(!cart.length) return;
 
+  const customer = getCustomer();
+  if(!customer){
+    openCheckoutModal(); // will flip to the login-required view
+    return;
+  }
+
   const name = document.getElementById("co-name").value.trim();
   const phone = document.getElementById("co-phone").value.trim();
-  const email = document.getElementById("co-email").value.trim();
+  const address = document.getElementById("co-address").value.trim();
   const btn = document.getElementById("checkout-submit-btn");
 
   if(typeof Razorpay === "undefined"){
@@ -404,12 +604,12 @@ async function submitCheckout(e){
   document.getElementById("checkout-error").style.display = "none";
 
   try {
-    const res = await fetch("/api/checkout/create-order", {
+    const res = await customerFetch("/api/checkout/create-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         items: cart.map(i => ({ id: i.id, qty: i.qty, size: i.size, color: i.color })),
-        customerName: name, customerPhone: phone, customerEmail: email,
+        customerName: name, customerPhone: phone, shippingAddress: address,
       }),
     });
     const data = await res.json();
@@ -424,7 +624,7 @@ async function submitCheckout(e){
       name: "FLARE",
       description: `Reservation deposit — balance ₹${data.balance_due} due later`,
       order_id: data.razorpay_order_id,
-      prefill: { name, contact: phone, email },
+      prefill: { name, contact: phone, email: customer.email },
       theme: { color: "#141115" },
       handler: function(response){
         handleCheckoutSuccess(response);
@@ -451,7 +651,7 @@ async function submitCheckout(e){
 
 async function handleCheckoutSuccess(response){
   try {
-    const res = await fetch("/api/checkout/verify", {
+    const res = await customerFetch("/api/checkout/verify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -479,6 +679,84 @@ async function handleCheckoutSuccess(response){
   }
 }
 
+/* ---------- My Orders (customer order history + tracking) ---------- */
+const TRACKING_STAGES = ["reserved", "confirmed", "packed", "shipped", "out_for_delivery", "delivered"];
+const TRACKING_LABELS = {
+  reserved: "Reserved", confirmed: "Confirmed", packed: "Packed",
+  shipped: "Shipped", out_for_delivery: "Out for Delivery",
+  delivered: "Delivered", cancelled: "Cancelled",
+};
+
+function trackingStepperHTML(status){
+  if(status === "cancelled"){
+    return `<div class="order-cancelled-badge">This order was cancelled</div>`;
+  }
+  const idx = Math.max(0, TRACKING_STAGES.indexOf(status));
+  return `<div class="order-tracker">
+    ${TRACKING_STAGES.map((stage, i) => `
+      <div class="tracker-step ${i<=idx?'done':''} ${i===idx?'current':''}">
+        <span class="tracker-dot"></span>
+        <span class="tracker-label">${TRACKING_LABELS[stage]}</span>
+      </div>
+    `).join("")}
+  </div>`;
+}
+
+function orderCardHTML(o){
+  const date = new Date(o.created_at).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" });
+  const itemsSummary = o.items.map(i => `${i.name} (${i.size||"–"}) ×${i.qty}`).join(", ");
+  return `
+  <div class="order-card">
+    <div class="order-card-head">
+      <div>
+        <div class="order-id">Order #${o.id}</div>
+        <div class="order-date">Placed ${date}</div>
+      </div>
+      <span class="order-status-badge status-${o.status}">${o.status === 'paid' ? 'Deposit Paid' : o.status === 'failed' ? 'Payment Failed' : 'Pending Payment'}</span>
+    </div>
+    <div class="order-items">${itemsSummary}</div>
+    ${trackingStepperHTML(o.tracking_status)}
+    ${o.tracking_note ? `<div class="order-tracking-note">${o.tracking_note}</div>` : ""}
+    <div class="order-totals">
+      <span>Order total: <strong>₹${o.cart_total}</strong></span>
+      <span>Paid: <strong>₹${o.deposit_amount}</strong></span>
+      <span>Balance due: <strong>₹${o.balance_due}</strong></span>
+    </div>
+    <div class="order-address"><strong>Shipping to:</strong> ${o.shipping_address}</div>
+  </div>`;
+}
+
+async function renderOrdersPage(){
+  const list = document.getElementById("orders-list");
+  if(!list) return; // not on the orders page
+
+  const signedOut = document.getElementById("orders-signed-out");
+  const empty = document.getElementById("orders-empty");
+  const customer = getCustomer();
+
+  if(!customer){
+    signedOut.style.display = "block";
+    empty.style.display = "none";
+    list.innerHTML = "";
+    return;
+  }
+  signedOut.style.display = "none";
+
+  try{
+    const res = await customerFetch("/api/my-orders");
+    const orders = await res.json();
+    if(!Array.isArray(orders) || !orders.length){
+      empty.style.display = "block";
+      list.innerHTML = "";
+      return;
+    }
+    empty.style.display = "none";
+    list.innerHTML = orders.map(orderCardHTML).join("");
+  }catch(e){
+    list.innerHTML = `<p style="color:var(--gray);text-align:center;padding:40px 0;">Couldn't load your orders. Please try again.</p>`;
+  }
+}
+
 /* ---------- Newsletter ---------- */
 function handleNewsletter(e){
   e.preventDefault();
@@ -494,11 +772,13 @@ function toggleMobileMenu(){
 
 document.addEventListener("DOMContentLoaded", async ()=>{
   updateCartBadge();
-  await Promise.all([loadProducts(), loadSettings()]);
+  updateAccountUI();
+  await Promise.all([loadProducts(), loadSettings(), loadAppConfig()]);
   renderHero();
   const trendingFirst = [...PRODUCTS.filter(p=>p.trending), ...PRODUCTS.filter(p=>!p.trending)];
   renderBestsellers("bestseller-grid", trendingFirst.slice(0,8));
   renderShopGrid();
   renderProductPage();
   renderCartPage();
+  renderOrdersPage();
 });

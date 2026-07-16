@@ -14,3 +14,5 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false

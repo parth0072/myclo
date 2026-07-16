@@ -117,6 +117,16 @@ body.admin-body{background:var(--cream);}
 .status-paid{background:#e3f6e8;color:#22834a;}
 .status-pending{background:#fdf3d9;color:#966b13;}
 .status-failed{background:#fdecec;color:#b23a3a;}
+.tracking-select{
+  padding:6px 8px;border-radius:8px;border:1.5px solid var(--line);
+  font-family:inherit;font-size:12px;background:#fff;color:var(--black);
+}
+.admin-toast{
+  position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(120%);
+  background:var(--black);color:#fff;padding:12px 22px;border-radius:100px;
+  font-size:13px;font-weight:600;z-index:999;transition:transform .3s ease;
+}
+.admin-toast.show{transform:translateX(-50%) translateY(0);}
 
 /* ---------- Homepage content editor + live preview ---------- */
 .content-editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start;}
