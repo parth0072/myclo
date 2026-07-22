@@ -177,6 +177,7 @@ function startEdit(id){
   document.getElementById("p-reviews").value = p.reviews;
   document.getElementById("p-image").value = p.image || "";
   document.getElementById("p-description").value = p.description || "";
+  document.getElementById("p-spin-images").value = (p.spinImages||[]).join(", ");
   document.getElementById("p-trending").checked = !!p.trending;
   document.getElementById("save-btn").textContent = "Update Product";
   openForm();

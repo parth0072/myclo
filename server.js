@@ -214,12 +214,13 @@ function formatProduct(row) {
     image: row.image || "",
     description: row.description || "",
     trending: !!row.trending,
+    spinImages: JSON.parse(row.spin_images || "[]"),
     g: "g" + (((row.id - 1) % 8) + 1),
   };
 }
 
 function validateProductBody(body) {
-  const { name, cat, price, mrp, sizes, colors, rating, reviews, image, description, trending } = body || {};
+  const { name, cat, price, mrp, sizes, colors, rating, reviews, image, description, trending, spinImages } = body || {};
   if (!name || !String(name).trim()) return { error: "Product name is required" };
   if (!cat || !String(cat).trim()) return { error: "Category is required" };
   if (price == null || isNaN(Number(price))) return { error: "A valid price is required" };
@@ -240,6 +241,10 @@ function validateProductBody(body) {
     image: image ? String(image).trim() : "",
     description: description ? String(description).trim() : "",
     trending: trending === true || trending === "true" || trending === "on" || trending === 1 || trending === "1" ? 1 : 0,
+    // Optional: URLs of photos shot in a circle around the garment, for a
+    // true 360° spin viewer. Fewer than 2 just means the product page falls
+    // back to the single-photo 3D tilt viewer — nothing breaks either way.
+    spinImages: toList(spinImages),
   };
 }
 
@@ -262,10 +267,10 @@ app.post("/api/products", requireAdmin, (req, res) => {
 
   const info = db
     .prepare(`
-      INSERT INTO products (name, cat, price, mrp, sizes, colors, rating, reviews, image, description, trending)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (name, cat, price, mrp, sizes, colors, rating, reviews, image, description, trending, spin_images)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-    .run(p.name, p.cat, p.price, p.mrp, JSON.stringify(p.sizes), JSON.stringify(p.colors), p.rating, p.reviews, p.image, p.description, p.trending);
+    .run(p.name, p.cat, p.price, p.mrp, JSON.stringify(p.sizes), JSON.stringify(p.colors), p.rating, p.reviews, p.image, p.description, p.trending, JSON.stringify(p.spinImages));
 
   const row = db.prepare("SELECT * FROM products WHERE id = ?").get(info.lastInsertRowid);
   res.status(201).json(formatProduct(row));
@@ -279,9 +284,9 @@ app.put("/api/products/:id", requireAdmin, (req, res) => {
   if (p.error) return res.status(400).json({ error: p.error });
 
   db.prepare(`
-    UPDATE products SET name=?, cat=?, price=?, mrp=?, sizes=?, colors=?, rating=?, reviews=?, image=?, description=?, trending=?
+    UPDATE products SET name=?, cat=?, price=?, mrp=?, sizes=?, colors=?, rating=?, reviews=?, image=?, description=?, trending=?, spin_images=?
     WHERE id=?
-  `).run(p.name, p.cat, p.price, p.mrp, JSON.stringify(p.sizes), JSON.stringify(p.colors), p.rating, p.reviews, p.image, p.description, p.trending, req.params.id);
+  `).run(p.name, p.cat, p.price, p.mrp, JSON.stringify(p.sizes), JSON.stringify(p.colors), p.rating, p.reviews, p.image, p.description, p.trending, JSON.stringify(p.spinImages), req.params.id);
 
   const row = db.prepare("SELECT * FROM products WHERE id = ?").get(req.params.id);
   res.json(formatProduct(row));

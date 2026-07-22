@@ -29,6 +29,7 @@ db.exec(`
     image TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
     trending INTEGER NOT NULL DEFAULT 0,
+    spin_images TEXT NOT NULL DEFAULT '[]',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -84,6 +85,16 @@ const bookingMigrations = [
 ];
 for (const [col, sql] of bookingMigrations) {
   if (!bookingColumns.has(col)) db.exec(sql);
+}
+
+/* ---------- Migrate products table for databases created before the 360°
+   spin viewer existed (spin_images: optional JSON array of photo URLs shot
+   in a circle around the garment; empty by default, which just means the
+   product page falls back to the single-photo 3D tilt viewer). ---------- */
+
+const productColumns = new Set(db.prepare("PRAGMA table_info(products)").all().map((c) => c.name));
+if (!productColumns.has("spin_images")) {
+  db.exec("ALTER TABLE products ADD COLUMN spin_images TEXT NOT NULL DEFAULT '[]'");
 }
 
 /* ---------- Seed products (only runs once, on an empty table) ---------- */

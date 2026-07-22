@@ -381,6 +381,29 @@ footer{background:var(--black);color:rgba(255,255,255,.7);padding:60px 0 24px;}
 }
 .pd-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
 .pd-thumb.active{border-color:var(--pink);}
+
+/* ---------- Interactive product viewer (360° spin / 3D tilt) ---------- */
+.pd-viewer{cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;perspective:1000px;}
+.pd-viewer.dragging{cursor:grabbing;}
+.pd-viewer img{-webkit-user-drag:none;}
+.pd-tilt-img{transform-style:preserve-3d;transition:transform .5s cubic-bezier(.16,1,.3,1);will-change:transform;}
+.pd-viewer.dragging .pd-tilt-img{transition:none;}
+.pd-spin-badge{
+  position:absolute;top:14px;right:14px;z-index:2;
+  background:rgba(20,17,21,.72);color:#fff;
+  font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:5px 10px;border-radius:999px;
+}
+.pd-drag-hint{
+  position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:2;
+  display:flex;align-items:center;gap:6px;
+  background:rgba(20,17,21,.72);color:#fff;
+  font-size:11.5px;font-weight:600;letter-spacing:.02em;
+  padding:7px 14px;border-radius:999px;
+  pointer-events:none;transition:opacity .35s ease;
+}
+.pd-drag-hint svg{width:14px;height:14px;flex:none;}
+.pd-viewer.interacted .pd-drag-hint{opacity:0;}
 .pd-info .pcard-cat{margin-bottom:6px;}
 .pd-title{font-size:30px;margin-bottom:10px;}
 .pd-price-row{display:flex;align-items:center;gap:12px;margin-bottom:18px;}

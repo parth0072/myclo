@@ -415,10 +415,115 @@ function renderShopGrid(){
   apply();
 }
 
-function setMainImage(src, el){
-  document.getElementById("pd-main").innerHTML = `<img src="${src}" alt="">`;
-  document.querySelectorAll(".pd-thumb").forEach(t=>t.classList.remove("active"));
-  if(el) el.classList.add("active");
+/* ---------- Interactive product viewer ----------
+   Two modes, chosen automatically per product based on what photos it has:
+
+   1) True 360° spin — if the product has 2+ spinImages (photos shot in a
+      circle around the garment), dragging left/right steps through those
+      frames to show a real rotation.
+   2) Single-photo 3D tilt — the honest fallback when we only have one
+      stock photo (true today for every seed product). Dragging tilts that
+      one photo in 3D (perspective + rotateX/rotateY) so it still feels
+      interactive, without faking angles we don't actually have photos of.
+
+   Works with mouse and touch via Pointer Events, with a plain mouse/touch
+   fallback for browsers where Pointer Events aren't available. */
+function initProductViewer(p, mainEl, thumbsEl, fallbackImg){
+  const frames = Array.isArray(p.spinImages) ? p.spinImages.filter(Boolean) : [];
+  const isSpin = frames.length >= 2;
+
+  mainEl.classList.add("pd-viewer");
+  mainEl.innerHTML = `
+    <img src="${isSpin ? frames[0] : fallbackImg}" alt="${p.name}" class="${isSpin ? '' : 'pd-tilt-img'}" draggable="false">
+    ${isSpin ? `<span class="pd-spin-badge">360°</span>` : ``}
+    <span class="pd-drag-hint">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+      Drag to ${isSpin ? "rotate" : "tilt"}
+    </span>`;
+
+  const img = mainEl.querySelector("img");
+
+  if(isSpin){
+    // Thumbs become quick-jump points into the spin sequence instead of
+    // four copies of one photo.
+    const stops = [0, Math.floor(frames.length*0.25), Math.floor(frames.length*0.5), Math.floor(frames.length*0.75)];
+    thumbsEl.innerHTML = stops.map((fi,i)=>`<div class="pd-thumb ${i===0?'active':''}" data-frame="${fi}"><img src="${frames[fi]}" alt=""></div>`).join("");
+    thumbsEl.querySelectorAll(".pd-thumb").forEach(t=>{
+      t.onclick = ()=>{
+        thumbsEl.querySelectorAll(".pd-thumb").forEach(x=>x.classList.remove("active"));
+        t.classList.add("active");
+        img.src = frames[Number(t.dataset.frame)];
+      };
+    });
+  } else {
+    // No real angle photography yet — every thumbnail would just be the
+    // same photo again, so skip the noise and rely on the tilt instead.
+    thumbsEl.innerHTML = "";
+  }
+
+  let dragging = false, startX = 0, startY = 0, frameIndex = 0, dragProgress = 0;
+
+  function setInteracted(){
+    if(!mainEl.classList.contains("interacted")) mainEl.classList.add("interacted");
+  }
+
+  function pointFrom(e){
+    return e.touches ? e.touches[0] : e;
+  }
+
+  function onDown(e){
+    dragging = true;
+    dragProgress = 0;
+    mainEl.classList.add("dragging");
+    const pt = pointFrom(e);
+    startX = pt.clientX; startY = pt.clientY;
+    if(e.pointerId != null && mainEl.setPointerCapture){
+      try{ mainEl.setPointerCapture(e.pointerId); }catch(_){ /* ignore */ }
+    }
+  }
+
+  function onMove(e){
+    if(!dragging) return;
+    const pt = pointFrom(e);
+    const dx = pt.clientX - startX;
+    const dy = pt.clientY - startY;
+    setInteracted();
+
+    if(isSpin){
+      const step = 8; // px of drag per frame step — smaller = more sensitive
+      const delta = Math.trunc((dx - dragProgress) / step);
+      if(delta !== 0){
+        frameIndex = ((frameIndex - delta) % frames.length + frames.length) % frames.length;
+        img.src = frames[frameIndex];
+        dragProgress += delta * step;
+      }
+    } else {
+      const rotY = Math.max(-25, Math.min(25, dx / 6));
+      const rotX = Math.max(-15, Math.min(15, -dy / 8));
+      img.style.transform = `perspective(1000px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(1.02)`;
+    }
+    if(e.cancelable) e.preventDefault();
+  }
+
+  function onUp(){
+    if(!dragging) return;
+    dragging = false;
+    mainEl.classList.remove("dragging");
+    if(!isSpin) img.style.transform = "";
+  }
+
+  if(window.PointerEvent){
+    mainEl.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove, {passive:false});
+    window.addEventListener("pointerup", onUp);
+  } else {
+    mainEl.addEventListener("mousedown", onDown);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    mainEl.addEventListener("touchstart", onDown, {passive:true});
+    mainEl.addEventListener("touchmove", onMove, {passive:false});
+    mainEl.addEventListener("touchend", onUp);
+  }
 }
 
 /* ---------- Product detail page ---------- */
@@ -439,18 +544,9 @@ function renderProductPage(){
   document.getElementById("pd-off").textContent = `${off}% off`;
   document.getElementById("pd-rating-count").textContent = `${p.rating} (${p.reviews} reviews)`;
   main.className = `pd-gallery-main ${p.g}`;
-  const galleryImages = p.image
-    ? [p.image, p.image, p.image, p.image] // one real photo — shown consistently across all thumbnail slots
-    : [1,2,3,4].map(n => demoImg(`flare${p.id}-${n}`, 900, 1125));
-  const galleryThumbs = p.image
-    ? [p.image, p.image, p.image, p.image]
-    : [1,2,3,4].map(n => demoImg(`flare${p.id}-${n}`, 200, 250));
-
-  main.innerHTML = `<img src="${galleryImages[0]}" alt="${p.name}">`;
-
+  const fallbackImg = p.image || demoImg(`flare${p.id}-1`, 900, 1125);
   const thumbs = document.getElementById("pd-thumbs");
-  thumbs.innerHTML = galleryThumbs
-    .map((thumbSrc,i)=>`<div class="pd-thumb ${i===0?'active':''}" onclick="setMainImage('${galleryImages[i]}', this)"><img src="${thumbSrc}" alt=""></div>`).join("");
+  initProductViewer(p, main, thumbs, fallbackImg);
 
   const colorRow = document.getElementById("pd-colors");
   colorRow.innerHTML = p.colors.map((c,i)=>`<span class="color-swatch-lg ${i===0?'active':''}" style="background:${c}" onclick="document.querySelectorAll('.color-swatch-lg').forEach(s=>s.classList.remove('active'));this.classList.add('active');window.__selectedColor='${c}';"></span>`).join("");
